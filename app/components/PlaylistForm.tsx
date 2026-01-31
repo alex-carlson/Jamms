@@ -1,0 +1,162 @@
+"use client";
+
+import { useState } from "react";
+import { Clipboard, Rocket } from "lucide-react";
+
+interface PlaylistFormProps {
+    onSubmit: (url: string) => void;
+    isLoading: boolean;
+}
+
+export default function PlaylistForm({ onSubmit, isLoading }: PlaylistFormProps) {
+    const [playlistUrl, setPlaylistUrl] = useState("");
+    const [isValidUrl, setIsValidUrl] = useState(true);
+
+    const validateYouTubePlaylistUrl = (url: string): boolean => {
+        if (!url.trim()) return true; // Allow empty input
+
+        const patterns = [
+            /^https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=([a-zA-Z0-9_-]+)/,
+            /^https?:\/\/(?:www\.)?youtube\.com\/watch\?.*[&?]list=([a-zA-Z0-9_-]+)/,
+            /^https?:\/\/youtu\.be\/.*[&?]list=([a-zA-Z0-9_-]+)/
+        ];
+
+        return patterns.some(pattern => pattern.test(url));
+    };
+
+    const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const url = e.target.value;
+        setPlaylistUrl(url);
+        setIsValidUrl(validateYouTubePlaylistUrl(url));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!playlistUrl.trim()) {
+            setIsValidUrl(false);
+            return;
+        }
+
+        if (!validateYouTubePlaylistUrl(playlistUrl)) {
+            setIsValidUrl(false);
+            return;
+        }
+
+        onSubmit(playlistUrl);
+    };
+
+    const handlePaste = async () => {
+        try {
+            // Check if clipboard API is available and document has focus
+            if (!navigator.clipboard) {
+                alert('Clipboard API not supported. Please manually paste the URL.');
+                return;
+            }
+
+            // Check if document has focus (required for clipboard access)
+            if (!document.hasFocus()) {
+                alert('Please click on the page first, then try pasting again.');
+                return;
+            }
+
+            const text = await navigator.clipboard.readText();
+            setPlaylistUrl(text);
+            setIsValidUrl(validateYouTubePlaylistUrl(text));
+        } catch (err) {
+            console.error("Failed to read clipboard contents: ", err);
+            // Fallback: focus the input and let user paste manually
+            const input = document.getElementById('playlist-url') as HTMLInputElement;
+            if (input) {
+                input.focus();
+                alert('Please paste the URL manually using Ctrl+V (Windows) or Cmd+V (Mac)');
+            }
+        }
+    };
+
+    return (
+        <div className="max-w-2xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-12">
+                <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
+                    ACarCrash Power Hours
+                </h1>
+                <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
+                    Enter a youtube playlist url and create an automatic power hour
+                </p>
+            </div>
+
+            {/* Main Form */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-8">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                        <label
+                            htmlFor="playlist-url"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                        >
+                            YouTube Playlist URL
+                        </label>
+                        <div className="relative">
+                            <input
+                                id="playlist-url"
+                                type="url"
+                                value={playlistUrl}
+                                onChange={handleUrlChange}
+                                placeholder="https://www.youtube.com/playlist?list=..."
+                                className={`w-full px-4 py-3 border rounded-lg text-gray-900 dark:text-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all ${!isValidUrl
+                                    ? "border-red-500 dark:border-red-500"
+                                    : "border-gray-300 dark:border-gray-600"
+                                    }`}
+                                disabled={isLoading}
+                            />
+                            <button
+                                type="button"
+                                onClick={handlePaste}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors flex items-center gap-1"
+                                disabled={isLoading}
+                            >
+                                <Clipboard className="h-4 w-4" />
+                                <span>Paste</span>
+                            </button>
+                        </div>
+                        {!isValidUrl && (
+                            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                                Please enter a valid YouTube playlist URL
+                            </p>
+                        )}
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={isLoading || !playlistUrl.trim() || !isValidUrl}
+                        className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                    >
+                        {isLoading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                <span>Processing...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Rocket className="h-5 w-5" />
+                                <span>Load Playlist</span>
+                            </>
+                        )}
+                    </button>
+                </form>
+            </div>
+
+            {/* Example URLs */}
+            <div className="mt-8 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                    Supported URL formats:
+                </p>
+                <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
+                    <div>youtube.com/playlist?list=PLxxxxxx</div>
+                    <div>youtube.com/watch?v=xxxxx&list=PLxxxxxx</div>
+                    <div>youtu.be/xxxxx?list=PLxxxxxx</div>
+                </div>
+            </div>
+        </div>
+    );
+}
