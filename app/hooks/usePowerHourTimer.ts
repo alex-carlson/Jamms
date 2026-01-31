@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 
 export const usePowerHourTimer = (onTimerExpired: () => void) => {
     const [powerHourActive, setPowerHourActive] = useState(false);
-    const [timeRemaining, setTimeRemaining] = useState(10);
+    const [timeRemaining, setTimeRemaining] = useState(60);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Cleanup timer on component unmount
@@ -18,7 +18,7 @@ export const usePowerHourTimer = (onTimerExpired: () => void) => {
 
     const startPowerHour = () => {
         setPowerHourActive(true);
-        setTimeRemaining(10);
+        setTimeRemaining(60);
 
         // Clear any existing timer
         if (timerRef.current) {
@@ -31,7 +31,7 @@ export const usePowerHourTimer = (onTimerExpired: () => void) => {
                 if (prev <= 1) {
                     // Move to next video and reset timer
                     onTimerExpired();
-                    return 10; // Reset timer
+                    return 60; // Reset timer
                 }
                 return prev - 1;
             });
@@ -42,7 +42,7 @@ export const usePowerHourTimer = (onTimerExpired: () => void) => {
 
     const stopPowerHour = () => {
         setPowerHourActive(false);
-        setTimeRemaining(10);
+        setTimeRemaining(60);
 
         // Clear the timer
         if (timerRef.current) {
@@ -57,7 +57,7 @@ export const usePowerHourTimer = (onTimerExpired: () => void) => {
             timerRef.current = null;
         }
         setPowerHourActive(false);
-        setTimeRemaining(10);
+        setTimeRemaining(60);
     };
 
     return {

@@ -139,6 +139,8 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
                     playsinline: 1,
                     iv_load_policy: 3, // Hide annotations
                     cc_load_policy: 0, // Hide closed captions
+                    loop: 0, // Disable looping
+                    disablekb: 0, // Allow keyboard controls
                 },
                 events: {
                     onReady: (event: any) => {
@@ -146,12 +148,36 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
                         if (powerHourActive) {
                             // Start playing immediately if power hour is active
                             event.target.playVideo();
+                            // Seek to 1/3 of the video duration after a short delay
+                            setTimeout(() => {
+                                const duration = event.target.getDuration();
+                                if (duration && duration > 0) {
+                                    const startTime = Math.floor(duration / 3);
+                                    console.log(`Seeking to ${startTime}s (1/3 of ${duration}s duration)`);
+                                    event.target.seekTo(startTime, true);
+                                }
+                            }, 1000);
                         }
                     },
                     onStateChange: (event: any) => {
                         const state = event.data;
                         // YT.PlayerState: PLAYING = 1, ENDED = 0
                         if (state === 1 && onVideoPlay) {
+                            // Get current video index from YouTube and sync our state
+                            const playlistIndex = event.target.getPlaylistIndex();
+                            console.log(`YouTube is now playing video at index ${playlistIndex}`);
+                            
+                            // Seek to 1/3 if we just started playing and are at the beginning
+                            if (powerHourActive) {
+                                const currentTime = event.target.getCurrentTime();
+                                const duration = event.target.getDuration();
+                                if (currentTime < 10 && duration && duration > 0) {
+                                    const startTime = Math.floor(duration / 3);
+                                    console.log(`Auto-seeking to ${startTime}s (1/3 of ${duration}s duration)`);
+                                    event.target.seekTo(startTime, true);
+                                }
+                            }
+                            
                             onVideoPlay();
                         } else if (state === 0 && onVideoEnd) {
                             // Video ended naturally (not stopped by timer)
@@ -175,8 +201,55 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
         if (playerRef.current && playerRef.current.nextVideo) {
             try {
                 playerRef.current.nextVideo();
+                // Seek to 1/3 of the video duration after a short delay
+                setTimeout(() => {
+                    const duration = playerRef.current.getDuration();
+                    if (duration && duration > 0) {
+                        const startTime = Math.floor(duration / 3);
+                        console.log(`Seeking to ${startTime}s (1/3 of ${duration}s duration)`);
+                        playerRef.current.seekTo(startTime, true);
+                    }
+                }, 1500);
             } catch (e) {
                 console.error("Error going to next video:", e);
+            }
+        }
+    }, []);
+
+    // Method to play video at specific index (for shuffle mode)
+    const playVideoAt = useCallback((index: number) => {
+        if (playerRef.current && playerRef.current.playVideoAt) {
+            try {
+                console.log(`Playing video at index ${index}`);
+                // Stop current video first to prevent auto-advance
+                if (playerRef.current.pauseVideo) {
+                    playerRef.current.pauseVideo();
+                }
+                // Then jump to the specified index
+                playerRef.current.playVideoAt(index);
+                
+                // Seek to 1/3 of the video duration after a short delay
+                setTimeout(() => {
+                    const duration = playerRef.current.getDuration();
+                    if (duration && duration > 0) {
+                        const startTime = Math.floor(duration / 3);
+                        console.log(`Seeking to ${startTime}s (1/3 of ${duration}s duration)`);
+                        playerRef.current.seekTo(startTime, true);
+                    }
+                }, 1500);
+            } catch (e) {
+                console.error("Error playing video at index:", e);
+            }
+        }
+    }, []);
+
+    // Method to stop current video
+    const stopVideo = useCallback(() => {
+        if (playerRef.current && playerRef.current.pauseVideo) {
+            try {
+                playerRef.current.pauseVideo();
+            } catch (e) {
+                console.error("Error stopping video:", e);
             }
         }
     }, []);
@@ -184,8 +257,10 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
     // Expose player methods to parent component via ref
     useImperativeHandle(ref, () => ({
         nextVideo,
+        playVideoAt,
+        stopVideo,
         player: playerRef.current
-    }), [nextVideo]);
+    }), [nextVideo, playVideoAt, stopVideo]);
 
     // Listen for messages from YouTube iframe
     useEffect(() => {

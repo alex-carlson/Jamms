@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { saveAuthData, getAuthData, clearAuthData, isTokenExpiringSoon } from "../utils/cookies";
 
 interface GoogleUser {
     id: string;
@@ -17,6 +18,8 @@ interface UseGoogleAuthReturn {
     signOut: () => void;
     getAccessToken: () => string | null;
     error: string | null;
+    googleLoaded: boolean;
+    isTokenExpiringSoon: () => boolean;
 }
 
 export const useGoogleAuth = (): UseGoogleAuthReturn => {
@@ -25,6 +28,27 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
     const [isLoading, setIsLoading] = useState(true);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [googleLoaded, setGoogleLoaded] = useState(false);
+
+    // Effect to restore authentication from cookies on page load
+    useEffect(() => {
+        const restoreAuthFromCookies = () => {
+            const authData = getAuthData();
+            if (authData) {
+                setUser(authData.userInfo);
+                setAccessToken(authData.accessToken);
+                setIsAuthenticated(true);
+                console.log('Restored authentication from cookies');
+                
+                // Check if token is expiring soon and might need refresh
+                if (isTokenExpiringSoon(10)) {
+                    console.log('Access token expires soon, user may need to re-authenticate');
+                }
+            }
+        };
+
+        restoreAuthFromCookies();
+    }, []);
 
     useEffect(() => {
         const initializeGoogleAuth = () => {
@@ -32,7 +56,14 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
 
             // Check if we have a valid client ID
             if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-                setError("Google Client ID not configured");
+                setError("Google Client ID not configured. Please check your environment variables.");
+                setIsLoading(false);
+                return;
+            }
+
+            // Check if Google is already loaded
+            if (window.google) {
+                setGoogleLoaded(true);
                 setIsLoading(false);
                 return;
             }
@@ -43,11 +74,28 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
             script.async = true;
             script.defer = true;
             script.onload = () => {
-                setIsLoading(false);
+                // Wait a bit for the script to fully initialize
+                setTimeout(() => {
+                    if (window.google) {
+                        setGoogleLoaded(true);
+                        setIsLoading(false);
+                    } else {
+                        // Retry after a longer delay
+                        setTimeout(() => {
+                            if (window.google) {
+                                setGoogleLoaded(true);
+                                setIsLoading(false);
+                            } else {
+                                setError("Google authentication failed to initialize properly");
+                                setIsLoading(false);
+                            }
+                        }, 2000);
+                    }
+                }, 500);
             };
             script.onerror = () => {
                 console.error("Failed to load Google Identity Services script");
-                setError("Failed to load Google authentication");
+                setError("Failed to load Google authentication services");
                 setIsLoading(false);
             };
             document.head.appendChild(script);
@@ -57,62 +105,91 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
     }, []);
 
     const signIn = () => {
-        if (typeof window === "undefined" || !window.google) {
-            setError("Google authentication not loaded");
+        if (typeof window === "undefined") {
+            setError("Cannot sign in on server side");
+            return;
+        }
+
+        if (!googleLoaded || !window.google) {
+            setError("Google authentication is still loading. Please wait a moment and try again.");
+            return;
+        }
+
+        if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+            setError("Google Client ID not configured");
             return;
         }
 
         setError(null);
 
-        // Use the token client directly (bypasses One Tap origin restrictions)
-        const tokenClient = window.google.accounts.oauth2.initTokenClient({
-            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-            scope: 'profile email https://www.googleapis.com/auth/youtube.readonly',
-            callback: async (response: any) => {
-                if (response.access_token) {
-                    setAccessToken(response.access_token);
+        try {
+            // Use the token client directly (bypasses One Tap origin restrictions)
+            const tokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
+                scope: 'profile email https://www.googleapis.com/auth/youtube.readonly',
+                callback: async (response: any) => {
+                    if (response.access_token) {
+                        setAccessToken(response.access_token);
 
-                    // Get user info from Google API
-                    try {
-                        const userResponse = await fetch(
-                            `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${response.access_token}`
-                        );
-                        const userInfo = await userResponse.json();
+                        // Get user info from Google API
+                        try {
+                            const userResponse = await fetch(
+                                `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${response.access_token}`
+                            );
+                            const userInfo = await userResponse.json();
 
-                        setUser({
-                            id: userInfo.id,
-                            name: userInfo.name,
-                            email: userInfo.email,
-                            picture: userInfo.picture,
-                        });
+                            const userData = {
+                                id: userInfo.id,
+                                name: userInfo.name,
+                                email: userInfo.email,
+                                picture: userInfo.picture,
+                            };
 
-                        setIsAuthenticated(true);
-                        setError(null);
-                    } catch (error) {
-                        console.error("Error fetching user info:", error);
-                        setError("Failed to get user information");
+                            setUser(userData);
+                            setIsAuthenticated(true);
+                            setError(null);
+
+                            // Save to cookies for persistence
+                            const expiresIn = response.expires_in || 3600; // Default 1 hour
+                            saveAuthData(response.access_token, userData, expiresIn);
+                            console.log('Authentication data saved to cookies');
+                        } catch (error) {
+                            console.error("Error fetching user info:", error);
+                            setError("Failed to get user information");
+                        }
+                    } else if (response.error) {
+                        if (response.error === 'popup_closed') {
+                            setError("Sign-in was cancelled. Please try again.");
+                        } else {
+                            setError(`Sign-in failed: ${response.error}. Please try again.`);
+                        }
                     }
-                } else if (response.error) {
-                    if (response.error === 'popup_closed') {
-                        setError("Sign-in was cancelled. Please try again.");
-                    } else {
-                        setError("Sign-in failed. Please try again.");
-                    }
-                }
-            },
+                },
         });
 
         // Request access token (opens popup)
         tokenClient.requestAccessToken();
+        } catch (error) {
+            console.error("Error during sign in:", error);
+            setError("Sign-in failed. Please refresh the page and try again.");
+        }
     };
 
     const signOut = () => {
-        if (window.google && accessToken) {
-            // Revoke the token
-            window.google.accounts.oauth2.revoke(accessToken, () => {
-                console.log('Token revoked');
-            });
+        if (typeof window !== "undefined" && window.google && accessToken) {
+            try {
+                // Revoke the token
+                window.google.accounts.oauth2.revoke(accessToken, () => {
+                    console.log('Token revoked');
+                });
+            } catch (error) {
+                console.error('Error revoking token:', error);
+            }
         }
+
+        // Clear cookies
+        clearAuthData();
+        console.log('Authentication data cleared from cookies');
 
         setUser(null);
         setAccessToken(null);
@@ -121,7 +198,16 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
     };
 
     const getAccessToken = () => {
+        // Check if token is expiring soon
+        if (accessToken && isTokenExpiringSoon(5)) {
+            console.log('Access token is expiring soon. User should re-authenticate.');
+            setError('Your session is expiring soon. Please sign in again.');
+        }
         return accessToken;
+    };
+
+    const checkTokenExpiration = () => {
+        return isTokenExpiringSoon(5);
     };
 
     return {
@@ -132,6 +218,8 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
         signOut,
         getAccessToken,
         error,
+        googleLoaded, // Export this so components can check if Google is ready
+        isTokenExpiringSoon: checkTokenExpiration,
     };
 };
 

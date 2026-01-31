@@ -37,7 +37,7 @@ export default function Home() {
   const [showManualInput, setShowManualInput] = useState(false);
 
   // Authentication and YouTube API hooks
-  const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError } = useGoogleAuth();
+  const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
   const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists } = useYouTubeAPI(getAccessToken);
 
   // Fetch playlists when user is authenticated
@@ -50,6 +50,7 @@ export default function Home() {
   const [embedError, setEmbedError] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
   const [shuffledIndices, setShuffledIndices] = useState<number[]>([]);
+  const [currentShufflePosition, setCurrentShufflePosition] = useState(0); // Track position in shuffle array
   const [totalVideos, setTotalVideos] = useState<number>(50); // Default estimate
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const youtubePlayerRef = useRef<any>(null);
@@ -58,15 +59,51 @@ export default function Home() {
   const { startOverlayTimer, startTitleTimer, clearTimers, resetOverlayAndTitle, ...overlayProps } = useOverlayAndTitle(currentVideoIndex);
 
   const goToNextVideo = () => {
-    if (!currentPlaylist) return;
+    console.log('=== goToNextVideo called ===');
+    console.log('Current playlist:', currentPlaylist?.id);
+    console.log('Is shuffled:', isShuffled);
+    console.log('Current video index:', currentVideoIndex);
+    console.log('Current shuffle position:', currentShufflePosition);
+    console.log('Shuffled indices:', shuffledIndices);
+    
+    if (!currentPlaylist) {
+      console.log('No current playlist, returning');
+      return;
+    }
 
-    // Use YouTube Player API to go to next video automatically
-    if (youtubePlayerRef.current?.nextVideo) {
-      youtubePlayerRef.current.nextVideo();
+    if (isShuffled && shuffledIndices.length > 0) {
+      // Handle shuffle mode - go to next position in shuffle array
+      setCurrentShufflePosition(prevPosition => {
+        const nextShufflePosition = (prevPosition + 1) % shuffledIndices.length;
+        const nextVideoIndex = shuffledIndices[nextShufflePosition];
+        
+        console.log(`Shuffle: Moving from position ${prevPosition} to position ${nextShufflePosition} (video ${nextVideoIndex})`);
+        
+        // Update video index
+        setCurrentVideoIndex(nextVideoIndex);
+        
+        // Use YouTube Player API to jump to the specific video index
+        if (youtubePlayerRef.current?.playVideoAt) {
+          console.log(`Calling playVideoAt(${nextVideoIndex})`);
+          youtubePlayerRef.current.playVideoAt(nextVideoIndex);
+        } else {
+          console.log('playVideoAt method not available on player');
+        }
+        
+        return nextShufflePosition;
+      });
     } else {
-      // Fallback: increment video index manually
-      const nextIndex = currentVideoIndex + 1;
-      setCurrentVideoIndex(nextIndex);
+      // Normal sequential mode - use YouTube Player API
+      console.log('Using normal sequential mode');
+      if (youtubePlayerRef.current?.nextVideo) {
+        console.log('Calling nextVideo()');
+        youtubePlayerRef.current.nextVideo();
+      } else {
+        // Fallback: increment video index manually
+        const nextIndex = currentVideoIndex + 1;
+        console.log(`Fallback: updating index to ${nextIndex}`);
+        setCurrentVideoIndex(nextIndex);
+      }
     }
 
     // Start overlay timer for new video
@@ -120,23 +157,23 @@ export default function Home() {
       // Create array of video indices based on estimated playlist size
       const indices = Array.from({ length: totalVideos }, (_, i) => i);
       const shuffled = shuffleArray(indices);
+      
+      // Find where the current video is in the shuffled array
+      const currentPositionInShuffle = shuffled.indexOf(currentVideoIndex);
+      
       setShuffledIndices(shuffled);
+      setCurrentShufflePosition(currentPositionInShuffle); // Set position to where current video is
       setIsShuffled(true);
 
-      // Update current video to use shuffled index
-      const shuffledCurrentIndex = shuffled[currentVideoIndex] || 0;
-      setCurrentPlaylist({
-        ...currentPlaylist,
-        embedUrl: createEmbedUrl(currentPlaylist.id, shuffledCurrentIndex)
-      });
+      console.log('Shuffle enabled. Order:', shuffled);
+      console.log(`Current video index ${currentVideoIndex} is at shuffle position ${currentPositionInShuffle}`);
+      console.log('Next video will be:', shuffled[(currentPositionInShuffle + 1) % shuffled.length]);
     } else {
       // Turn off shuffle, go back to original order
       setIsShuffled(false);
       setShuffledIndices([]);
-      setCurrentPlaylist({
-        ...currentPlaylist,
-        embedUrl: createEmbedUrl(currentPlaylist.id, currentVideoIndex)
-      });
+      setCurrentShufflePosition(0);
+      console.log('Shuffle disabled. Back to sequential order at index:', currentVideoIndex);
     }
   };
 
@@ -159,6 +196,9 @@ export default function Home() {
       setTimeout(() => {
         setCurrentPlaylist(playlistData);
         setCurrentVideoIndex(0);
+        setIsShuffled(false); // Reset shuffle state for new playlist
+        setShuffledIndices([]);
+        setCurrentShufflePosition(0);
         setEmbedError(false);
         setIsLoading(false);
       }, 1000);
@@ -178,6 +218,9 @@ export default function Home() {
 
     setCurrentPlaylist(playlistData);
     setCurrentVideoIndex(0);
+    setIsShuffled(false); // Reset shuffle state for new playlist
+    setShuffledIndices([]);
+    setCurrentShufflePosition(0);
     setTotalVideos(playlist.itemCount);
     setEmbedError(false);
   };
@@ -202,6 +245,7 @@ export default function Home() {
     setEmbedError(false);
     setIsShuffled(false);
     setShuffledIndices([]);
+    setCurrentShufflePosition(0);
     setTotalVideos(50); // Reset to default
     setIsFullscreen(false);
   };
@@ -252,7 +296,7 @@ export default function Home() {
         {/* Not authenticated - show login */}
         {!authLoading && !isAuthenticated && !showManualInput && (
           <div className="space-y-6">
-            <LoginComponent onSignIn={signIn} isLoading={false} error={authError} />
+            <LoginComponent onSignIn={signIn} isLoading={authLoading} error={authError} googleLoaded={googleLoaded} />
             {authError && authError.includes("authorized origins") && (
               <OAuthSetupGuide />
             )}
@@ -288,6 +332,32 @@ export default function Home() {
         {/* Authenticated but no playlist selected - show playlist selector */}
         {!authLoading && isAuthenticated && !currentPlaylist && !showManualInput && user && (
           <div className="space-y-6">
+            {/* Token expiration warning */}
+            {isTokenExpiringSoon() && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="text-yellow-600 dark:text-yellow-400">⚠️</div>
+                  <div>
+                    <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                      Session Expiring Soon
+                    </h3>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                      Your login session will expire soon. Consider signing in again for uninterrupted access.
+                    </p>
+                    <button
+                      onClick={() => {
+                        signOut();
+                        setTimeout(() => signIn(), 100);
+                      }}
+                      className="mt-2 text-sm bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded font-medium transition-colors"
+                    >
+                      Refresh Session
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <PlaylistSelector
               user={user}
               playlists={playlists}
@@ -311,6 +381,29 @@ export default function Home() {
         {/* Playlist selected - show player */}
         {currentPlaylist && (
           <div className={`mx-auto transition-all duration-300 ${isFullscreen ? 'max-w-full px-2' : 'max-w-6xl'}`}>
+            {/* Token expiration warning for active sessions */}
+            {isAuthenticated && isTokenExpiringSoon() && !isFullscreen && (
+              <div className="mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-yellow-600 dark:text-yellow-400">⚠️</span>
+                    <span className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                      Session expiring soon
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setTimeout(() => signIn(), 100);
+                    }}
+                    className="text-xs bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-1 rounded transition-colors"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
+            )}
+
             <PlayerHeader
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}

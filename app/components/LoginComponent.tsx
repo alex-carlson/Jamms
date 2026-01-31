@@ -6,9 +6,10 @@ interface LoginComponentProps {
     onSignIn: () => void;
     isLoading: boolean;
     error?: string | null;
+    googleLoaded?: boolean;
 }
 
-export default function LoginComponent({ onSignIn, isLoading, error }: LoginComponentProps) {
+export default function LoginComponent({ onSignIn, isLoading, error, googleLoaded = true }: LoginComponentProps) {
     return (
         <div className="max-w-md mx-auto text-center">
             {/* Header */}
@@ -45,13 +46,18 @@ export default function LoginComponent({ onSignIn, isLoading, error }: LoginComp
                 {/* Sign In Button */}
                 <button
                     onClick={onSignIn}
-                    disabled={isLoading}
+                    disabled={isLoading || !googleLoaded}
                     className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-3"
                 >
                     {isLoading ? (
                         <>
                             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                             <span>Connecting...</span>
+                        </>
+                    ) : !googleLoaded ? (
+                        <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            <span>Loading Google Auth...</span>
                         </>
                     ) : (
                         <>
