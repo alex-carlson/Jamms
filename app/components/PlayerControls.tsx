@@ -5,8 +5,8 @@ import { Play, Pause, SkipForward } from "lucide-react";
 interface PlayerControlsProps {
     timeRemaining: number;
     powerHourActive: boolean;
-    isShuffled: boolean;
-    onToggleShuffle: () => void;
+    videoDuration: number;
+    onDurationChange: (duration: number) => void;
     onStartPowerHour: () => void;
     onStopPowerHour: () => void;
     onNextVideo: () => void;
@@ -15,15 +15,45 @@ interface PlayerControlsProps {
 export default function PlayerControls({
     timeRemaining,
     powerHourActive,
-    isShuffled,
-    onToggleShuffle,
+    videoDuration,
+    onDurationChange,
     onStartPowerHour,
     onStopPowerHour,
     onNextVideo,
 }: PlayerControlsProps) {
     return (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col gap-4">
+                {/* Duration Setting - Only show when not active */}
+                {!powerHourActive && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                        <div className="text-center sm:text-left">
+                            <div className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                                Video Duration
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                                How long to play each video
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-gray-600 dark:text-gray-300">10s</span>
+                            <input
+                                type="range"
+                                min="10"
+                                max="60"
+                                value={videoDuration}
+                                onChange={(e) => onDurationChange(parseInt(e.target.value))}
+                                className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 slider"
+                            />
+                            <span className="text-sm text-gray-600 dark:text-gray-300">60s</span>
+                            <div className="ml-2 px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white min-w-[3rem] text-center">
+                                {videoDuration}s
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 {/* Timer Display */}
                 <div className="text-center sm:text-left">
                     <div className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
@@ -34,45 +64,20 @@ export default function PlayerControls({
                     </div>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="flex-1 max-w-md mx-4">
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                        <div
-                            className="bg-red-600 h-3 rounded-full transition-all duration-1000"
-                            style={{ width: `${((60 - timeRemaining) / 60) * 100}%` }}
-                        />
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
-                        {60 - timeRemaining}s elapsed
-                    </div>
-                </div>
-
                 {/* Control Buttons */}
                 <div className="flex flex-wrap gap-3">
-                    <button
-                        onClick={onToggleShuffle}
-                        className={`font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2 ${isShuffled
-                            ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                            : 'bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white'
-                            }`}
-                        disabled={powerHourActive}
-                    >
-                        <span>{isShuffled ? '🔀' : '📋'}</span>
-                        <span>{isShuffled ? 'Shuffled' : 'Shuffle'}</span>
-                    </button>
-
                     {!powerHourActive ? (
                         <button
                             onClick={onStartPowerHour}
                             className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2"
                         >
                             <Play className="h-4 w-4" />
-                            <span>Start Power Hour</span>
+                            <span>Play</span>
                         </button>
                     ) : (
                         <button
                             onClick={onStopPowerHour}
-                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2"
+                            className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2"
                         >
                             <Pause className="h-4 w-4" />
                             <span>Pause</span>
@@ -86,6 +91,7 @@ export default function PlayerControls({
                         <SkipForward className="h-4 w-4" />
                         <span>Next</span>
                     </button>
+                </div>
                 </div>
             </div>
         </div>

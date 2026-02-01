@@ -48,7 +48,6 @@ export default function Home() {
   }, [isAuthenticated]);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [embedError, setEmbedError] = useState(false);
-  const [isShuffled, setIsShuffled] = useState(false);
   const [shuffledIndices, setShuffledIndices] = useState<number[]>([]);
   const [currentShufflePosition, setCurrentShufflePosition] = useState(0); // Track position in shuffle array
   const [totalVideos, setTotalVideos] = useState<number>(50); // Default estimate
@@ -61,50 +60,34 @@ export default function Home() {
   const goToNextVideo = () => {
     console.log('=== goToNextVideo called ===');
     console.log('Current playlist:', currentPlaylist?.id);
-    console.log('Is shuffled:', isShuffled);
-    console.log('Current video index:', currentVideoIndex);
     console.log('Current shuffle position:', currentShufflePosition);
     console.log('Shuffled indices:', shuffledIndices);
-    
-    if (!currentPlaylist) {
-      console.log('No current playlist, returning');
+
+    if (!currentPlaylist || shuffledIndices.length === 0) {
+      console.log('No current playlist or shuffled indices, returning');
       return;
     }
 
-    if (isShuffled && shuffledIndices.length > 0) {
-      // Handle shuffle mode - go to next position in shuffle array
-      setCurrentShufflePosition(prevPosition => {
-        const nextShufflePosition = (prevPosition + 1) % shuffledIndices.length;
-        const nextVideoIndex = shuffledIndices[nextShufflePosition];
-        
-        console.log(`Shuffle: Moving from position ${prevPosition} to position ${nextShufflePosition} (video ${nextVideoIndex})`);
-        
-        // Update video index
-        setCurrentVideoIndex(nextVideoIndex);
-        
-        // Use YouTube Player API to jump to the specific video index
-        if (youtubePlayerRef.current?.playVideoAt) {
-          console.log(`Calling playVideoAt(${nextVideoIndex})`);
-          youtubePlayerRef.current.playVideoAt(nextVideoIndex);
-        } else {
-          console.log('playVideoAt method not available on player');
-        }
-        
-        return nextShufflePosition;
-      });
-    } else {
-      // Normal sequential mode - use YouTube Player API
-      console.log('Using normal sequential mode');
-      if (youtubePlayerRef.current?.nextVideo) {
-        console.log('Calling nextVideo()');
-        youtubePlayerRef.current.nextVideo();
+    // Always use shuffle mode now - go to next position in shuffle array
+    setCurrentShufflePosition(prevPosition => {
+      const nextShufflePosition = (prevPosition + 1) % shuffledIndices.length;
+      const nextVideoIndex = shuffledIndices[nextShufflePosition];
+
+      console.log(`Moving from position ${prevPosition} to position ${nextShufflePosition} (video ${nextVideoIndex})`);
+
+      // Update video index
+      setCurrentVideoIndex(nextVideoIndex);
+
+      // Use YouTube Player API to jump to the specific video index
+      if (youtubePlayerRef.current?.playVideoAt) {
+        console.log(`Calling playVideoAt(${nextVideoIndex})`);
+        youtubePlayerRef.current.playVideoAt(nextVideoIndex);
       } else {
-        // Fallback: increment video index manually
-        const nextIndex = currentVideoIndex + 1;
-        console.log(`Fallback: updating index to ${nextIndex}`);
-        setCurrentVideoIndex(nextIndex);
+        console.log('playVideoAt method not available on player');
       }
-    }
+
+      return nextShufflePosition;
+    });
 
     // Start overlay timer for new video
     if (powerHourActive) {
@@ -113,7 +96,19 @@ export default function Home() {
     }
   };
 
-  const { powerHourActive, timeRemaining, startPowerHour: basePowerHour, stopPowerHour: baseStopPowerHour, resetTimer } = usePowerHourTimer(goToNextVideo);
+  const goToNextVideoManual = () => {
+    console.log('=== Manual next video triggered ===');
+
+    // Reset timer to full 60 seconds when manually advancing
+    if (powerHourActive) {
+      resetTimerToFull();
+    }
+
+    // Call the regular next video function
+    goToNextVideo();
+  };
+
+  const { powerHourActive, timeRemaining, videoDuration, setVideoDuration, startPowerHour: basePowerHour, stopPowerHour: baseStopPowerHour, resetTimer, resetTimerToFull } = usePowerHourTimer(goToNextVideo);
 
   const handleVideoPlay = () => {
     // Auto-start power hour when user presses play (if not already active)
@@ -150,33 +145,6 @@ export default function Home() {
     setIsFullscreen(!isFullscreen);
   };
 
-  const toggleShuffle = () => {
-    if (!currentPlaylist) return;
-
-    if (!isShuffled) {
-      // Create array of video indices based on estimated playlist size
-      const indices = Array.from({ length: totalVideos }, (_, i) => i);
-      const shuffled = shuffleArray(indices);
-      
-      // Find where the current video is in the shuffled array
-      const currentPositionInShuffle = shuffled.indexOf(currentVideoIndex);
-      
-      setShuffledIndices(shuffled);
-      setCurrentShufflePosition(currentPositionInShuffle); // Set position to where current video is
-      setIsShuffled(true);
-
-      console.log('Shuffle enabled. Order:', shuffled);
-      console.log(`Current video index ${currentVideoIndex} is at shuffle position ${currentPositionInShuffle}`);
-      console.log('Next video will be:', shuffled[(currentPositionInShuffle + 1) % shuffled.length]);
-    } else {
-      // Turn off shuffle, go back to original order
-      setIsShuffled(false);
-      setShuffledIndices([]);
-      setCurrentShufflePosition(0);
-      console.log('Shuffle disabled. Back to sequential order at index:', currentVideoIndex);
-    }
-  };
-
   const handlePlaylistSubmit = async (url: string) => {
     setIsLoading(true);
 
@@ -184,21 +152,26 @@ export default function Home() {
     const playlistId = extractPlaylistId(url);
     if (playlistId) {
       const estimatedTotal = estimatePlaylistSize(playlistId);
-      setTotalVideos(estimatedTotal);
+
+      // Automatically create shuffled list of 60 videos (or total if less than 60)
+      const videosToUse = Math.min(60, estimatedTotal);
+      const indices = Array.from({ length: estimatedTotal }, (_, i) => i);
+      const shuffled = shuffleArray(indices).slice(0, videosToUse);
+
+      setTotalVideos(videosToUse);
+      setShuffledIndices(shuffled);
+      setCurrentShufflePosition(0);
 
       const playlistData: PlaylistData = {
         id: playlistId,
-        embedUrl: createEmbedUrl(playlistId, 0),
+        embedUrl: createEmbedUrl(playlistId, shuffled[0]),
         originalUrl: url,
-        totalVideos: estimatedTotal
+        totalVideos: videosToUse
       };
 
       setTimeout(() => {
         setCurrentPlaylist(playlistData);
-        setCurrentVideoIndex(0);
-        setIsShuffled(false); // Reset shuffle state for new playlist
-        setShuffledIndices([]);
-        setCurrentShufflePosition(0);
+        setCurrentVideoIndex(shuffled[0]);
         setEmbedError(false);
         setIsLoading(false);
       }, 1000);
@@ -209,19 +182,24 @@ export default function Home() {
 
   // Handle playlist selection from YouTube API
   const handleYouTubePlaylistSelect = (playlist: YouTubePlaylist) => {
+    // Automatically create shuffled list of 60 videos (or total if less than 60)
+    const videosToUse = Math.min(60, playlist.itemCount);
+    const indices = Array.from({ length: playlist.itemCount }, (_, i) => i);
+    const shuffled = shuffleArray(indices).slice(0, videosToUse);
+
+    setTotalVideos(videosToUse);
+    setShuffledIndices(shuffled);
+    setCurrentShufflePosition(0);
+
     const playlistData: PlaylistData = {
       id: playlist.id,
-      embedUrl: createEmbedUrl(playlist.id, 0),
+      embedUrl: createEmbedUrl(playlist.id, shuffled[0]),
       originalUrl: `https://www.youtube.com/playlist?list=${playlist.id}`,
-      totalVideos: playlist.itemCount
+      totalVideos: videosToUse
     };
 
     setCurrentPlaylist(playlistData);
-    setCurrentVideoIndex(0);
-    setIsShuffled(false); // Reset shuffle state for new playlist
-    setShuffledIndices([]);
-    setCurrentShufflePosition(0);
-    setTotalVideos(playlist.itemCount);
+    setCurrentVideoIndex(shuffled[0]);
     setEmbedError(false);
   };
 
@@ -243,7 +221,6 @@ export default function Home() {
     setCurrentPlaylist(null);
     setCurrentVideoIndex(0);
     setEmbedError(false);
-    setIsShuffled(false);
     setShuffledIndices([]);
     setCurrentShufflePosition(0);
     setTotalVideos(50); // Reset to default
@@ -252,12 +229,9 @@ export default function Home() {
 
   const handleTryFormat1 = () => {
     if (currentPlaylist) {
-      const actualVideoIndex = isShuffled && shuffledIndices.length > 0
-        ? shuffledIndices[currentVideoIndex] || currentVideoIndex
-        : currentVideoIndex;
       const embedUrl = powerHourActive
-        ? createAutoplayAlternativeEmbedUrl(currentPlaylist.id, actualVideoIndex)
-        : createAlternativeEmbedUrl(currentPlaylist.id, actualVideoIndex);
+        ? createAutoplayAlternativeEmbedUrl(currentPlaylist.id, currentVideoIndex)
+        : createAlternativeEmbedUrl(currentPlaylist.id, currentVideoIndex);
       setCurrentPlaylist({
         ...currentPlaylist,
         embedUrl: embedUrl
@@ -268,12 +242,9 @@ export default function Home() {
 
   const handleTryFormat2 = () => {
     if (currentPlaylist) {
-      const actualVideoIndex = isShuffled && shuffledIndices.length > 0
-        ? shuffledIndices[currentVideoIndex] || currentVideoIndex
-        : currentVideoIndex;
       const embedUrl = powerHourActive
-        ? createAutoplayDirectEmbedUrl(currentPlaylist.id, actualVideoIndex)
-        : createDirectEmbedUrl(currentPlaylist.id, actualVideoIndex);
+        ? createAutoplayDirectEmbedUrl(currentPlaylist.id, currentVideoIndex)
+        : createDirectEmbedUrl(currentPlaylist.id, currentVideoIndex);
       setCurrentPlaylist({
         ...currentPlaylist,
         embedUrl: embedUrl
@@ -357,7 +328,7 @@ export default function Home() {
                 </div>
               </div>
             )}
-            
+
             <PlaylistSelector
               user={user}
               playlists={playlists}
@@ -415,7 +386,7 @@ export default function Home() {
               currentPlaylist={currentPlaylist}
               isFullscreen={isFullscreen}
               embedError={embedError}
-              isShuffled={isShuffled}
+              isShuffled={true}
               shuffledIndices={shuffledIndices}
               currentVideoIndex={currentVideoIndex}
               powerHourActive={powerHourActive}
@@ -430,11 +401,11 @@ export default function Home() {
             <PlayerControls
               timeRemaining={timeRemaining}
               powerHourActive={powerHourActive}
-              isShuffled={isShuffled}
-              onToggleShuffle={toggleShuffle}
+              videoDuration={videoDuration}
+              onDurationChange={setVideoDuration}
               onStartPowerHour={startPowerHour}
               onStopPowerHour={stopPowerHour}
-              onNextVideo={goToNextVideo}
+              onNextVideo={goToNextVideoManual}
             />
           </div>
         )}
