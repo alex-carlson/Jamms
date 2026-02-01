@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, RefreshCw, User, LogOut } from "lucide-react";
+import { Play, RefreshCw, User, LogOut, Shuffle, RotateCcw } from "lucide-react";
 import { YouTubePlaylist } from "../hooks/useYouTubeAPI";
 
 interface PlaylistSelectorProps {
@@ -16,6 +16,9 @@ interface PlaylistSelectorProps {
     onPlaylistSelect: (playlist: YouTubePlaylist) => void;
     onRefreshPlaylists: () => void;
     onSignOut: () => void;
+    onShufflePlaylists: () => void;
+    onResetPlaylistOrder: () => void;
+    isShuffled: boolean;
 }
 
 export default function PlaylistSelector({
@@ -26,6 +29,9 @@ export default function PlaylistSelector({
     onPlaylistSelect,
     onRefreshPlaylists,
     onSignOut,
+    onShufflePlaylists,
+    onResetPlaylistOrder,
+    isShuffled,
 }: PlaylistSelectorProps) {
     const [selectedPlaylist, setSelectedPlaylist] = useState<YouTubePlaylist | null>(null);
 
@@ -65,19 +71,38 @@ export default function PlaylistSelector({
                 </p>
             </div>
 
-            {/* Refresh Button */}
+            {/* Control Buttons */}
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Your Playlists
+                    Your Playlists {isShuffled && <span className="text-sm font-normal text-blue-600">(Shuffled)</span>}
                 </h2>
-                <button
-                    onClick={onRefreshPlaylists}
-                    disabled={isLoading}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-                >
-                    <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-                    <span>Refresh</span>
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={isShuffled ? onResetPlaylistOrder : onShufflePlaylists}
+                        disabled={isLoading || playlists.length === 0}
+                        className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                    >
+                        {isShuffled ? (
+                            <>
+                                <RotateCcw className="h-4 w-4" />
+                                <span>Reset Order</span>
+                            </>
+                        ) : (
+                            <>
+                                <Shuffle className="h-4 w-4" />
+                                <span>Shuffle</span>
+                            </>
+                        )}
+                    </button>
+                    <button
+                        onClick={onRefreshPlaylists}
+                        disabled={isLoading}
+                        className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                        <span>Refresh</span>
+                    </button>
+                </div>
             </div>
 
             {/* Error Message */}

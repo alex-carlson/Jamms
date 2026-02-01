@@ -6,6 +6,8 @@ interface PlayerControlsProps {
     timeRemaining: number;
     powerHourActive: boolean;
     videoDuration: number;
+    currentVideoIndex: number;
+    totalVideos: number;
     onDurationChange: (duration: number) => void;
     onStartPowerHour: () => void;
     onStopPowerHour: () => void;
@@ -16,6 +18,8 @@ export default function PlayerControls({
     timeRemaining,
     powerHourActive,
     videoDuration,
+    currentVideoIndex,
+    totalVideos,
     onDurationChange,
     onStartPowerHour,
     onStopPowerHour,
@@ -61,6 +65,16 @@ export default function PlayerControls({
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                         Time remaining in current video
+                    </div>
+                </div>
+
+                {/* Video Counter */}
+                <div className="text-center">
+                    <div className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        {currentVideoIndex + 1}/{totalVideos}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Video progress
                     </div>
                 </div>
 

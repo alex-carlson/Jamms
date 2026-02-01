@@ -39,6 +39,7 @@ export default function Home() {
   // Authentication and YouTube API hooks
   const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
   const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists } = useYouTubeAPI(getAccessToken);
+  const [shuffledPlaylists, setShuffledPlaylists] = useState<any[]>([]);
 
   // Fetch playlists when user is authenticated
   useEffect(() => {
@@ -47,25 +48,36 @@ export default function Home() {
     }
   }, [isAuthenticated]);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [videoCount, setVideoCount] = useState(0); // Running count from 0, incremented to 1 on first video
   const [embedError, setEmbedError] = useState(false);
   const [shuffledIndices, setShuffledIndices] = useState<number[]>([]);
   const [currentShufflePosition, setCurrentShufflePosition] = useState(0); // Track position in shuffle array
   const [totalVideos, setTotalVideos] = useState<number>(50); // Default estimate
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const youtubePlayerRef = useRef<any>(null);
+  const timerIncrementRef = useRef(false); // Prevent double increments from timer
 
   // Custom hooks
   const { startOverlayTimer, startTitleTimer, clearTimers, resetOverlayAndTitle, ...overlayProps } = useOverlayAndTitle(currentVideoIndex);
 
-  const goToNextVideo = () => {
+  const goToNextVideo = (isAutoAdvance = false) => {
     console.log('=== goToNextVideo called ===');
     console.log('Current playlist:', currentPlaylist?.id);
     console.log('Current shuffle position:', currentShufflePosition);
     console.log('Shuffled indices:', shuffledIndices);
+    console.log('Is auto advance:', isAutoAdvance);
 
     if (!currentPlaylist || shuffledIndices.length === 0) {
       console.log('No current playlist or shuffled indices, returning');
       return;
+    }
+
+    // Increment counter if this is an auto advance (timer)
+    if (isAutoAdvance) {
+      setVideoCount(prev => {
+        console.log(`Auto: Incrementing video count from ${prev} to ${prev + 1}`);
+        return prev + 1;
+      });
     }
 
     // Always use shuffle mode now - go to next position in shuffle array
@@ -75,40 +87,53 @@ export default function Home() {
 
       console.log(`Moving from position ${prevPosition} to position ${nextShufflePosition} (video ${nextVideoIndex})`);
 
-      // Update video index
+      // Update video index - this will trigger VideoPlayer to recreate with new index
       setCurrentVideoIndex(nextVideoIndex);
-
-      // Use YouTube Player API to jump to the specific video index
-      if (youtubePlayerRef.current?.playVideoAt) {
-        console.log(`Calling playVideoAt(${nextVideoIndex})`);
-        youtubePlayerRef.current.playVideoAt(nextVideoIndex);
-      } else {
-        console.log('playVideoAt method not available on player');
-      }
 
       return nextShufflePosition;
     });
-
-    // Start overlay timer for new video
-    if (powerHourActive) {
-      startOverlayTimer();
-      startTitleTimer();
-    }
   };
 
   const goToNextVideoManual = () => {
     console.log('=== Manual next video triggered ===');
+    console.log('Current video count before manual advance:', videoCount);
+
+    // Increment counter for manual advance
+    setVideoCount(prev => {
+      console.log(`Manual: Incrementing video count from ${prev} to ${prev + 1}`);
+      return prev + 1;
+    });
 
     // Reset timer to full 60 seconds when manually advancing
     if (powerHourActive) {
       resetTimerToFull();
     }
 
-    // Call the regular next video function
-    goToNextVideo();
+    // Call the regular next video function - don't auto-increment
+    goToNextVideo(false); // Pass false for manual advance
   };
 
-  const { powerHourActive, timeRemaining, videoDuration, setVideoDuration, startPowerHour: basePowerHour, stopPowerHour: baseStopPowerHour, resetTimer, resetTimerToFull } = usePowerHourTimer(goToNextVideo);
+  const handleTimerExpired = () => {
+    console.log('=== Timer expired - auto advance ===');
+    console.log(`Current video count before timer: ${videoCount}`);
+    
+    // Prevent double increments using ref
+    if (timerIncrementRef.current) {
+      console.log('Timer increment already in progress, skipping...');
+      return;
+    }
+    
+    timerIncrementRef.current = true;
+    goToNextVideo(true); // Pass true for auto advance
+    console.log('Timer: Finished calling goToNextVideo');
+    
+    // Reset the ref after a brief delay to allow for the next timer cycle
+    setTimeout(() => {
+      timerIncrementRef.current = false;
+    }, 100);
+  };
+
+  const { powerHourActive, timeRemaining, videoDuration, setVideoDuration, startPowerHour: basePowerHour, stopPowerHour: baseStopPowerHour, resetTimer, resetTimerToFull } = usePowerHourTimer(handleTimerExpired);
 
   const handleVideoPlay = () => {
     // Auto-start power hour when user presses play (if not already active)
@@ -124,6 +149,31 @@ export default function Home() {
       startOverlayTimer();
       startTitleTimer();
     }
+  };
+
+  const handlePlayerReady = () => {
+    // This is called when the YouTube player is ready after a video change
+    if (powerHourActive) {
+      console.log('Player ready - starting overlay timers');
+      startOverlayTimer();
+      startTitleTimer();
+    }
+  };
+
+  const shufflePlaylistOrder = () => {
+    // Fisher-Yates shuffle algorithm
+    const shuffled = [...playlists];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setShuffledPlaylists(shuffled);
+    console.log('Playlists shuffled:', shuffled.map(p => p.title));
+  };
+
+  const resetPlaylistOrder = () => {
+    setShuffledPlaylists([]);
+    console.log('Playlist order reset to original');
   };
 
   const startPowerHour = () => {
@@ -153,10 +203,10 @@ export default function Home() {
     if (playlistId) {
       const estimatedTotal = estimatePlaylistSize(playlistId);
 
-      // Automatically create shuffled list of 60 videos (or total if less than 60)
-      const videosToUse = Math.min(60, estimatedTotal);
+      // Automatically create shuffled list using all videos
+      const videosToUse = estimatedTotal;
       const indices = Array.from({ length: estimatedTotal }, (_, i) => i);
-      const shuffled = shuffleArray(indices).slice(0, videosToUse);
+      const shuffled = shuffleArray(indices);
 
       setTotalVideos(videosToUse);
       setShuffledIndices(shuffled);
@@ -172,6 +222,7 @@ export default function Home() {
       setTimeout(() => {
         setCurrentPlaylist(playlistData);
         setCurrentVideoIndex(shuffled[0]);
+        setVideoCount(0); // Reset running count for new playlist
         setEmbedError(false);
         setIsLoading(false);
       }, 1000);
@@ -182,10 +233,10 @@ export default function Home() {
 
   // Handle playlist selection from YouTube API
   const handleYouTubePlaylistSelect = (playlist: YouTubePlaylist) => {
-    // Automatically create shuffled list of 60 videos (or total if less than 60)
-    const videosToUse = Math.min(60, playlist.itemCount);
+    // Automatically create shuffled list using all videos in playlist
+    const videosToUse = playlist.itemCount;
     const indices = Array.from({ length: playlist.itemCount }, (_, i) => i);
-    const shuffled = shuffleArray(indices).slice(0, videosToUse);
+    const shuffled = shuffleArray(indices);
 
     setTotalVideos(videosToUse);
     setShuffledIndices(shuffled);
@@ -200,6 +251,7 @@ export default function Home() {
 
     setCurrentPlaylist(playlistData);
     setCurrentVideoIndex(shuffled[0]);
+    setVideoCount(0); // Reset running count for new playlist
     setEmbedError(false);
   };
 
@@ -220,6 +272,7 @@ export default function Home() {
 
     setCurrentPlaylist(null);
     setCurrentVideoIndex(0);
+    setVideoCount(0); // Reset running count
     setEmbedError(false);
     setShuffledIndices([]);
     setCurrentShufflePosition(0);
@@ -331,12 +384,15 @@ export default function Home() {
 
             <PlaylistSelector
               user={user}
-              playlists={playlists}
+              playlists={shuffledPlaylists.length > 0 ? shuffledPlaylists : playlists}
               isLoading={playlistsLoading}
               error={playlistsError}
               onPlaylistSelect={handleYouTubePlaylistSelect}
               onRefreshPlaylists={fetchPlaylists}
               onSignOut={handleSignOut}
+              onShufflePlaylists={shufflePlaylistOrder}
+              onResetPlaylistOrder={resetPlaylistOrder}
+              isShuffled={shuffledPlaylists.length > 0}
             />
             <div className="text-center">
               <button
@@ -388,13 +444,14 @@ export default function Home() {
               embedError={embedError}
               isShuffled={true}
               shuffledIndices={shuffledIndices}
-              currentVideoIndex={currentVideoIndex}
+              currentVideoIndex={videoCount}
               powerHourActive={powerHourActive}
               onEmbedError={() => setEmbedError(true)}
               onTryFormat1={handleTryFormat1}
               onTryFormat2={handleTryFormat2}
               onVideoPlay={handleVideoPlay}
               onVideoEnd={handleVideoEnd}
+              onPlayerReady={handlePlayerReady}
               {...overlayProps}
             />
 
@@ -402,6 +459,8 @@ export default function Home() {
               timeRemaining={timeRemaining}
               powerHourActive={powerHourActive}
               videoDuration={videoDuration}
+              currentVideoIndex={videoCount}
+              totalVideos={totalVideos}
               onDurationChange={setVideoDuration}
               onStartPowerHour={startPowerHour}
               onStopPowerHour={stopPowerHour}
