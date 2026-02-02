@@ -2,19 +2,14 @@
 
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 
+import { PlaylistData } from "../page";
+
 // Declare YouTube Player API types
 declare global {
     interface Window {
         YT: any;
         onYouTubeIframeAPIReady: () => void;
     }
-}
-
-interface PlaylistData {
-    id: string;
-    embedUrl: string;
-    originalUrl: string;
-    totalVideos?: number;
 }
 
 interface VideoPlayerProps {
@@ -28,6 +23,7 @@ interface VideoPlayerProps {
     shuffledIndices: number[];
     currentVideoIndex: number;
     powerHourActive: boolean;
+    isMuted: boolean;
     onEmbedError: () => void;
     onTryFormat1: () => void;
     onTryFormat2: () => void;
@@ -66,60 +62,25 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
     }, [currentPlaylist?.id]);
 
     // Centralized seek function to prevent conflicts
-    const seekToThird = useCallback((videoKey: string) => {
-        if (!playerRef.current || seekingRef.current || hasInitialSeeked.current.has(videoKey)) {
+    const seekToThird = useCallback(() => {
+        if (!playerRef.current || seekingRef.current) {
             return;
         }
 
         seekingRef.current = true;
 
-        setTimeout(() => {
-            try {
-                const duration = playerRef.current?.getDuration();
-                if (duration && duration > 0) {
-                    const startTime = Math.floor(duration / 3);
-                    console.log(`Seeking to ${startTime}s (1/3 of ${duration}s duration) for video ${videoKey}`);
-                    playerRef.current?.seekTo(startTime, true);
-                    hasInitialSeeked.current.add(videoKey);
-                }
-            } catch (e) {
-                console.error("Error seeking:", e);
-            } finally {
-                seekingRef.current = false;
+        try {
+            const duration = playerRef.current?.getDuration();
+            if (duration && duration > 0) {
+                const startTime = Math.floor(duration / 3);
+                playerRef.current?.seekTo(startTime, true);
             }
-        }, 1000);
+        } catch (e) {
+            console.error("Error seeking:", e);
+        } finally {
+            seekingRef.current = false;
+        }
     }, []);
-
-    // Seek to 1/3 then start playing
-    const seekToThirdThenPlay = useCallback((videoKey: string, player?: any) => {
-        const targetPlayer = player || playerRef.current;
-        if (!targetPlayer || seekingRef.current || hasInitialSeeked.current.has(videoKey)) {
-            return;
-        }
-
-        seekingRef.current = true;
-
-        setTimeout(() => {
-            try {
-                const duration = targetPlayer.getDuration();
-                if (duration && duration > 0) {
-                    const startTime = Math.floor(duration / 3);
-                    console.log(`Seeking to ${startTime}s then playing for video ${videoKey}`);
-                    targetPlayer.seekTo(startTime, true);
-                    hasInitialSeeked.current.add(videoKey);
-                    
-                    // Start playing after seeking
-                    setTimeout(() => {
-                        targetPlayer.playVideo();
-                    }, 500);
-                }
-            } catch (e) {
-                console.error("Error seeking then playing:", e);
-            } finally {
-                seekingRef.current = false;
-            }
-        }, 1000);
-    }, []);;
 
     // Load YouTube Player API
     useEffect(() => {
@@ -159,13 +120,19 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
 
     // Initialize or update player when playlist/settings change
     useEffect(() => {
+        console.log("Init Player..");
         if (apiReadyRef.current && currentPlaylist) {
             // Clear seek tracking for new playlist
             hasInitialSeeked.current.clear();
             seekingRef.current = false;
-            initializePlayer();
+            initializePlayer()
         }
-    }, [currentPlaylist, powerHourActive, currentVideoIndex]);
+    }, [currentPlaylist, powerHourActive]);
+
+    useEffect(() => {
+        console.log("Playing video at: ", currentVideoIndex);
+        playVideoAt()
+    }, [currentVideoIndex])
 
     const initializePlayer = useCallback(() => {
         if (!window.YT || !containerRef.current || !currentPlaylist) return;
@@ -175,6 +142,8 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
             onEmbedError();
             return;
         }
+
+        console.log("Init video player");
 
         try {
             // Destroy existing player
@@ -194,7 +163,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
                 playerVars: {
                     list: playlistId,
                     listType: 'playlist',
-                    index: currentVideoIndex,
+                    index: currentPlaylist.shuffledData[currentVideoIndex],
                     autoplay: powerHourActive ? 1 : 0,
                     controls: 0, // Hide all player controls
                     rel: 0, // Don't show related videos
@@ -210,37 +179,17 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
                 },
                 events: {
                     onReady: (event: any) => {
-                        console.log("YouTube player ready");
-                        if (powerHourActive) {
-                            // Pause immediately to prevent playing from start
-                            event.target.pauseVideo();
-                            
-                            // Seek to 1/3 first, then play
-                            const videoKey = `${playlistId}-${currentVideoIndex}`;
-                            seekToThirdThenPlay(videoKey, event.target);
-                        }
-                        
                         // Notify parent that player is ready
                         if (onPlayerReady) {
                             onPlayerReady();
+                            seekToThird();
                         }
                     },
                     onStateChange: (event: any) => {
                         const state = event.data;
                         // YT.PlayerState: PLAYING = 1, ENDED = 0
                         if (state === 1 && onVideoPlay) {
-                            // Get current video index from YouTube and sync our state
-                            const playlistIndex = event.target.getPlaylistIndex();
-                            console.log(`YouTube is now playing video at index ${playlistIndex}`);
-
-                            // Only seek if power hour is active and this is NOT the same as currentVideoIndex
-                            // (avoid double seeking since onReady already handles the initial seek)
-                            if (powerHourActive && playlistIndex !== currentVideoIndex) {
-                                // This handles cases where YouTube auto-advances or we manually change videos
-                                const videoKey = `${playlistId}-${playlistIndex}`;
-                                seekToThird(videoKey);
-                            }
-
+                            console.log("Playing video at shuffled index: ", currentPlaylist.shuffledData[currentVideoIndex]);
                             onVideoPlay();
                         } else if (state === 0 && onVideoEnd) {
                             // Video ended naturally (not stopped by timer)
@@ -257,67 +206,22 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
             console.error("Failed to initialize YouTube player:", error);
             onEmbedError();
         }
-    }, [currentPlaylist, powerHourActive, currentVideoIndex, getPlaylistId, onEmbedError, onVideoPlay, onVideoEnd]);
+    }, [currentPlaylist.shuffledData, currentVideoIndex]);
 
-    // Method to programmatically go to next video
-    const nextVideo = useCallback(() => {
-        if (playerRef.current && playerRef.current.nextVideo) {
-            try {
-                playerRef.current.nextVideo();
-                
-                // Pause immediately and seek before playing
-                if (powerHourActive) {
-                    setTimeout(() => {
-                        if (playerRef.current) {
-                            playerRef.current.pauseVideo();
-                            const playlistIndex = playerRef.current.getPlaylistIndex();
-                            if (playlistIndex !== undefined) {
-                                const playlistId = getPlaylistId();
-                                const videoKey = `${playlistId}-${playlistIndex}`;
-                                seekToThirdThenPlay(videoKey);
-                            }
-                        }
-                    }, 500);
-                }
-            } catch (e) {
-                console.error("Error going to next video:", e);
-            }
-        }
-    }, [powerHourActive, seekToThirdThenPlay, getPlaylistId]);
-
-    // Method to play video at specific index (for shuffle mode)
-    const playVideoAt = useCallback((index: number) => {
+    const playVideoAt = useCallback(() => {
+        console.log("Playing video at: ", currentVideoIndex);
         if (playerRef.current && playerRef.current.playVideoAt) {
             try {
-                console.log(`Playing video at index ${index}`);
-                // Jump to the specified index
-                playerRef.current.playVideoAt(index);
-
-                // For power hour mode, seek and play after the video loads
-                if (powerHourActive) {
-                    // Wait a bit longer for the video to load, then seek and play
-                    setTimeout(() => {
-                        if (playerRef.current) {
-                            const playlistId = getPlaylistId();
-                            const videoKey = `${playlistId}-${index}`;
-                            seekToThirdThenPlay(videoKey);
-                        }
-                    }, 1000); // Increased timeout to ensure video loads
-                } else {
-                    // Not in power hour mode, just play normally
-                    setTimeout(() => {
-                        if (playerRef.current && playerRef.current.playVideo) {
-                            playerRef.current.playVideo();
-                        }
-                    }, 500);
-                }
+                const shuffledIndex = currentPlaylist.shuffledData[currentVideoIndex];
+                playerRef.current.playVideoAt(shuffledIndex);
+                seekToThird()
             } catch (e) {
                 console.error("Error playing video at index:", e);
             }
         } else {
             console.log('Player or playVideoAt method not available');
         }
-    }, [powerHourActive, seekToThirdThenPlay, getPlaylistId]);
+    }, [currentVideoIndex, currentPlaylist.shuffledData, initializePlayer]);
 
     // Method to stop current video
     const stopVideo = useCallback(() => {
@@ -332,11 +236,10 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
 
     // Expose player methods to parent component via ref
     useImperativeHandle(ref, () => ({
-        nextVideo,
         playVideoAt,
         stopVideo,
         player: playerRef.current
-    }), [nextVideo, playVideoAt, stopVideo]);
+    }), [playVideoAt, stopVideo]);
 
     // Listen for messages from YouTube iframe
     useEffect(() => {

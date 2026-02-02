@@ -49,14 +49,6 @@ export const createAutoplayDirectEmbedUrl = (playlistId: string, videoIndex: num
     return `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&index=${videoIndex + 1}&start=60&autoplay=1&controls=1&showinfo=0&rel=0`;
 };
 
-// Function to get playlist info (simplified - in real app you'd use YouTube API)
-export const estimatePlaylistSize = (playlistId: string): number => {
-    // Since we can't easily get exact count without YouTube API key,
-    // we'll use a reasonable default and let users know it's estimated
-    // In a real implementation, you'd fetch from YouTube API
-    return 50; // Default estimate
-};
-
 // Fisher-Yates shuffle algorithm
 export const shuffleArray = (array: number[]): number[] => {
     const shuffled = [...array];

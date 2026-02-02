@@ -63,7 +63,6 @@ export const useOverlayAndTitle = (currentVideoIndex: number) => {
     };
 
     const startTitleTimer = () => {
-        console.log('Starting title timer for video:', currentVideoIndex + 1); // Debug log
         // Clear any existing title timer
         if (titleTimerRef.current) {
             clearTimeout(titleTimerRef.current);
@@ -82,7 +81,6 @@ export const useOverlayAndTitle = (currentVideoIndex: number) => {
 
             setVideoTitle(title);
             setShowTitle(true);
-            console.log('Title timer fired:', title); // Debug log
         }, 15000);
 
         titleTimerRef.current = timer;

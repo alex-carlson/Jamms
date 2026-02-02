@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, RefreshCw, User, LogOut, Shuffle, RotateCcw } from "lucide-react";
+import { Play, RefreshCw, User, LogOut } from "lucide-react";
 import { YouTubePlaylist } from "../hooks/useYouTubeAPI";
 
 interface PlaylistSelectorProps {
@@ -29,7 +29,6 @@ export default function PlaylistSelector({
     onPlaylistSelect,
     onRefreshPlaylists,
     onSignOut,
-    onShufflePlaylists,
     onResetPlaylistOrder,
     isShuffled,
 }: PlaylistSelectorProps) {
@@ -78,23 +77,6 @@ export default function PlaylistSelector({
                 </h2>
                 <div className="flex gap-2">
                     <button
-                        onClick={isShuffled ? onResetPlaylistOrder : onShufflePlaylists}
-                        disabled={isLoading || playlists.length === 0}
-                        className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                        {isShuffled ? (
-                            <>
-                                <RotateCcw className="h-4 w-4" />
-                                <span>Reset Order</span>
-                            </>
-                        ) : (
-                            <>
-                                <Shuffle className="h-4 w-4" />
-                                <span>Shuffle</span>
-                            </>
-                        )}
-                    </button>
-                    <button
                         onClick={onRefreshPlaylists}
                         disabled={isLoading}
                         className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -127,8 +109,8 @@ export default function PlaylistSelector({
                         <div
                             key={playlist.id}
                             className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-xl hover:scale-105 ${selectedPlaylist?.id === playlist.id
-                                    ? "ring-2 ring-red-600 ring-opacity-50"
-                                    : ""
+                                ? "ring-2 ring-red-600 ring-opacity-50"
+                                : ""
                                 }`}
                             onClick={() => setSelectedPlaylist(playlist)}
                         >
