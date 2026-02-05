@@ -446,7 +446,7 @@ export default function Home() {
                 embedError={embedError}
                 shuffledIndices={shuffledIndices}
                 currentVideoIndex={currentVideoIndex}
-                timerDuration={videoDuration}
+                videoDuration={videoDuration}
                 powerHourActive={powerHourActive}
                 onEmbedError={() => setEmbedError(true)}
                 onVideoPlay={handlePlaybackStarted}
