@@ -7,81 +7,55 @@ export const useOverlayAndTitle = (currentVideoIndex: number, videoDuration: num
     const [showTitle, setShowTitle] = useState(false);
     const [videoTitle, setVideoTitle] = useState("");
     const [currentVideoTitle, setCurrentVideoTitle] = useState("");
-    const [titleCountdown, setTitleCountdown] = useState(0); // New: countdown in seconds
+    const [titleCountdown, setTitleCountdown] = useState(0);
 
     const overlayTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const titleTimerRef = useRef<NodeJS.Timeout | null>(null);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Listen for messages from YouTube iframe to get video titles
+    // Listen for YouTube messages to get video title
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
-            if (event.origin !== 'https://www.youtube.com' && event.origin !== 'https://www.youtube-nocookie.com') return;
+            if (!["https://www.youtube.com", "https://www.youtube-nocookie.com"].includes(event.origin)) return;
 
             try {
-                if (typeof event.data === 'string' && event.data.includes('title')) {
+                if (typeof event.data === "string" && event.data.includes("title")) {
                     const data = JSON.parse(event.data);
-                    if (data.title && data.title.length > 0) {
-                        setCurrentVideoTitle(data.title);
-                    }
+                    if (data.title) setCurrentVideoTitle(data.title);
                 }
-            } catch (e) { }
+            } catch { }
         };
 
-        window.addEventListener('message', handleMessage);
-
+        window.addEventListener("message", handleMessage);
         return () => {
-            window.removeEventListener('message', handleMessage);
-            clearTimers();
+            window.removeEventListener("message", handleMessage);
+            clearAllTimers();
         };
     }, []);
 
     const startOverlayTimer = () => {
         if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
-
         setShowOverlay(true);
-
-        overlayTimerRef.current = setTimeout(() => {
-            setShowOverlay(false);
-        }, 5000);
+        overlayTimerRef.current = setTimeout(() => setShowOverlay(false), 5000);
     };
 
     const startTitleTimer = () => {
-        if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
-        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+        clearCountdown();
 
-        setShowTitle(false);
-        setVideoTitle("");
-        setTitleCountdown(0);
+        if (!videoDuration || videoDuration <= 0) return;
 
-        // Wait until videoDuration is available
-        if (!videoDuration || videoDuration <= 0) {
-            const checkDuration = setInterval(() => {
-                if (videoDuration && videoDuration > 0) {
-                    clearInterval(checkDuration);
-                    startCountdown(videoDuration);
-                }
-            }, 100);
-        } else {
-            startCountdown(videoDuration);
-        }
-    };
-
-    const startCountdown = (duration: number) => {
-        const countdownSeconds = Math.ceil(duration / 3);
+        const countdownSeconds = Math.ceil(videoDuration / 3);
         setTitleCountdown(countdownSeconds);
 
         countdownIntervalRef.current = setInterval(() => {
             setTitleCountdown(prev => {
                 if (prev <= 1) {
-                    clearInterval(countdownIntervalRef.current!);
+                    clearCountdown();
                     setShowTitle(true);
-
-                    const title = currentVideoTitle && currentVideoTitle.trim()
-                        ? currentVideoTitle.replace(' - YouTube', '')
-                        : `Video ${currentVideoIndex + 1}`;
-                    setVideoTitle(title);
-
+                    setVideoTitle(
+                        currentVideoTitle?.trim()
+                            ? currentVideoTitle.replace(" - YouTube", "")
+                            : `Video ${currentVideoIndex + 1}`
+                    );
                     return 0;
                 }
                 return prev - 1;
@@ -89,20 +63,20 @@ export const useOverlayAndTitle = (currentVideoIndex: number, videoDuration: num
         }, 1000);
     };
 
-    const clearTimers = () => {
-        if (overlayTimerRef.current) {
-            clearTimeout(overlayTimerRef.current);
-            overlayTimerRef.current = null;
-        }
-        if (titleTimerRef.current) {
-            clearTimeout(titleTimerRef.current);
-            titleTimerRef.current = null;
-        }
+
+    const clearCountdown = () => {
         if (countdownIntervalRef.current) {
             clearInterval(countdownIntervalRef.current);
             countdownIntervalRef.current = null;
         }
+    };
 
+    const clearAllTimers = () => {
+        if (overlayTimerRef.current) {
+            clearTimeout(overlayTimerRef.current);
+            overlayTimerRef.current = null;
+        }
+        clearCountdown();
         setShowOverlay(false);
         setShowTitle(false);
         setVideoTitle("");
@@ -110,7 +84,7 @@ export const useOverlayAndTitle = (currentVideoIndex: number, videoDuration: num
     };
 
     const resetOverlayAndTitle = () => {
-        clearTimers();
+        clearAllTimers();
         setCurrentVideoTitle("");
     };
 
@@ -122,7 +96,7 @@ export const useOverlayAndTitle = (currentVideoIndex: number, videoDuration: num
         titleCountdown,
         startOverlayTimer,
         startTitleTimer,
-        clearTimers,
+        clearTimers: clearAllTimers,
         resetOverlayAndTitle,
     };
 };
