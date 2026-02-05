@@ -202,6 +202,7 @@ export default function Home() {
         },
       });
       const data = await response.json();
+      /* eslint-disable  @typescript-eslint/no-explicit-any */
       videoIds = videoIds.concat(data.items.map((item: any) => item.snippet.resourceId.videoId));
       nextPageToken = data.nextPageToken;
     } while (nextPageToken);
