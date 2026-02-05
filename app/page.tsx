@@ -197,8 +197,12 @@ export default function Home() {
     resetTimerToFull();
   };
 
-  const shufflePlaylistOrder = () => setShuffledPlaylists(shuffleArray([...playlists]));
+  const shufflePlaylistOrder = () => setShuffledPlaylists(shuffleArray(playlists));
   const resetPlaylistOrder = () => setShuffledPlaylists([]);
+
+  function shuffleArray<T>(array: T[]): T[] {
+    return [...array].sort(() => Math.random() - 0.5);
+  }
 
   const handleSignOut = () => {
     signOut();
