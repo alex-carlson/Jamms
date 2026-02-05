@@ -299,7 +299,6 @@ export default function Home() {
             )}
           </div>
         )}
-
         {/* Video Player */}
         {currentPlaylist && (
           <div className="mx-auto transition-all duration-300 max-w-6xl">
@@ -307,9 +306,16 @@ export default function Home() {
               <div className="mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <span className="text-yellow-600 dark:text-yellow-400">⚠️</span>
-                  <span className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">Session expiring soon</span>
+                  <span className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                    Session expiring soon
+                  </span>
                 </div>
-                <button onClick={() => { signOut(); setTimeout(signIn, 100); }} className="text-xs bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-1 rounded transition-colors">Refresh</button>
+                <button
+                  onClick={() => { signOut(); setTimeout(signIn, 100); }}
+                  className="text-xs bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-1 rounded transition-colors"
+                >
+                  Refresh
+                </button>
               </div>
             )}
 
@@ -320,7 +326,6 @@ export default function Home() {
                 countdown={titleCountdown}
                 videoName={videoTitle}
               />
-
 
               <VideoPlayer
                 ref={youtubePlayerRef}
@@ -337,20 +342,21 @@ export default function Home() {
               />
             </div>
 
-            <VideoPlayer
-              ref={youtubePlayerRef}
-              currentPlaylist={currentPlaylist}
-              shuffledIndices={shuffledIndices}
-              currentVideoIndex={currentVideoIndex}
-              videoDuration={videoDuration}
+            <PlayerControls
+              timeRemaining={timeRemaining}
               powerHourActive={powerHourActive}
-              onEmbedError={() => setEmbedError(true)}
-              onVideoEnd={handleVideoEnd}
-              onPlayerReady={handlePlayerReady}
+              videoDuration={videoDuration}
+              currentVideoIndex={currentVideoIndex}
+              totalVideos={totalVideos}
+              onDurationChange={setVideoDuration}
+              onStartPowerHour={handleStartFromControls}
+              onStopPowerHour={baseStop}
+              onNextVideo={onNextPressed}
             />
-
-        )}
           </div>
+        )}
+
+      </div>
     </div>
-      );
+  );
 }
