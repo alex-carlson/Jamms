@@ -14,36 +14,24 @@ declare global {
 
 interface VideoPlayerProps {
     currentPlaylist: PlaylistData;
-    isFullscreen: boolean;
     embedError: boolean;
-    showOverlay: boolean;
-    showTitle: boolean;
-    videoTitle: string;
-    isShuffled: boolean;
     shuffledIndices: number[];
     currentVideoIndex: number;
+    videoDuration: number;
     powerHourActive: boolean;
     onEmbedError: () => void;
-    onTryFormat1: () => void;
-    onTryFormat2: () => void;
-    onVideoPlay?: () => void; // New prop for detecting play events
-    onVideoEnd?: () => void; // New prop for when video ends naturally
-    onPlayerReady?: () => void; // New prop for when player is ready
-    onVideoSeekedReady?: () => void; // New prop to notify parent when initial seek completed
+    onVideoPlay?: () => void;
+    onVideoEnd?: () => void
+    onPlayerReady?: () => void;
+    onVideoSeekedReady?: () => void;
 }
 
 export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
     currentPlaylist,
-    isFullscreen,
-    embedError,
-    showOverlay,
-    showTitle,
-    videoTitle,
     currentVideoIndex,
+    videoDuration,
     powerHourActive,
     onEmbedError,
-    onTryFormat1,
-    onTryFormat2,
     onVideoPlay,
     onVideoEnd,
     onPlayerReady,
@@ -55,7 +43,6 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
     const seekingRef = useRef(false);
     const hasInitialSeeked = useRef(new Set<string>());
 
-    // Centralized seek function to prevent conflicts
     const seekToThird = useCallback(() => {
         if (!playerRef.current || seekingRef.current) {
             return;
@@ -65,8 +52,21 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
 
         try {
             const duration = playerRef.current?.getDuration();
+            const timerDuration = videoDuration;
+
             if (duration && duration > 0) {
+
                 const startTime = Math.floor(duration / 3);
+
+                // if video is short, that it plays at the beginning
+                const isShorterThanTimer = (duration - timerDuration) < 0;
+                const isStartTimeTooLate = (duration - startTime) < 0;
+
+                if (isShorterThanTimer || isStartTimeTooLate) {
+                    playerRef.current?.seekTo(0, true);
+                    return;
+                }
+
                 playerRef.current?.seekTo(startTime, true);
             }
         } catch (e) {
@@ -154,8 +154,6 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
             return;
         }
 
-        console.log("Init video player", videoId, 'at shuffled index', currentVideoIndex);
-
         try {
             // Destroy existing player
             if (playerRef.current) {
@@ -181,7 +179,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
                     cc_load_policy: 0, // Hide closed captions
                     loop: 0, // Disable looping
                     disablekb: 1, // Disable keyboard controls
-                    fs: 0, // Disable fullscreen button
+                    fs: 1, // Disable fullscreen button
                     showinfo: 0, // Hide video title and uploader info
                     end: 9999999, // Set very high end time to prevent related videos overlay
                 },
@@ -330,64 +328,13 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
     }, [onVideoPlay]); return (
-        <div className={`bg-black rounded-2xl overflow-hidden shadow-2xl mb-6 ${isFullscreen ? 'mx-4' : ''}`}>
-            {/* Black overlay bar to hide YouTube title */}
-            {showOverlay && (
-                <div className="relative z-10">
-                    <div className="absolute top-0 left-0 right-0 bg-black h-[100px] z-10"></div>
-                </div>
-            )}
-
-            {/* Video Title Overlay - Bottom Left */}
-            {showTitle && videoTitle && (
-                <div className="relative z-20">
-                    <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-4 py-2 rounded-lg backdrop-blur-sm animate-fade-in max-w-md">
-                        <h2 className="text-sm font-semibold truncate">
-                            {videoTitle}
-                        </h2>
-                    </div>
-                </div>
-            )}
-
-            <div className="relative" style={{ paddingBottom: isFullscreen ? '70vh' : '56.25%', height: 0 }}>
-                {embedError ? (
-                    <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900 text-white">
-                        <div className="text-center p-8">
-                            <h3 className="text-xl font-semibold mb-4">Video Unavailable</h3>
-                            <p className="text-gray-300 mb-4">This playlist may have embedding restrictions.</p>
-                            <div className="space-y-3 mb-4">
-                                <button
-                                    onClick={onTryFormat1}
-                                    className="block w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
-                                >
-                                    Try Format #1
-                                </button>
-                                <button
-                                    onClick={onTryFormat2}
-                                    className="block w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-                                >
-                                    Try Format #2
-                                </button>
-                            </div>
-                            <div className="mt-4">
-                                <a
-                                    href={currentPlaylist?.originalUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-400 hover:text-blue-300 underline"
-                                >
-                                    Open in YouTube
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div
-                        ref={containerRef}
-                        className="absolute top-0 left-0 w-full h-full"
-                        id={`youtube-player-${currentPlaylist?.id || 'default'}`}
-                    />
-                )}
+        <div className={`bg-black rounded-2xl overflow-hidden shadow-2xl mb-6`}>
+            <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
+                <div
+                    ref={containerRef}
+                    className="absolute top-0 left-0 w-full h-full"
+                    id={`youtube-player-${currentPlaylist?.id || 'default'}`}
+                />
             </div>
         </div>
     );

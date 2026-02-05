@@ -71,7 +71,7 @@ export default function PlayerControls({
                     {/* Video Counter */}
                     <div className="text-center">
                         <div className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                            {currentVideoIndex + 1}/{totalVideos}
+                            {currentVideoIndex}/{totalVideos}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                             Video progress

@@ -234,7 +234,7 @@ export default function Home() {
         };
 
         setCurrentPlaylist(playlistData);
-        setCurrentVideoIndex(0);
+        setCurrentVideoIndex(1);
         setVideoCount(0); // Reset running count for new playlist
         setEmbedError(false);
         setIsLoading(false);
@@ -271,7 +271,7 @@ export default function Home() {
         };
 
         setCurrentPlaylist(playlistData);
-        setCurrentVideoIndex(0);
+        setCurrentVideoIndex(1);
         setVideoCount(0); // Reset running count for new playlist
         setEmbedError(false);
         setIsLoading(false);
@@ -300,33 +300,6 @@ export default function Home() {
     setEmbedError(false);
     setShuffledIndices([]);
     setTotalVideos(50); // Reset to default
-    setIsFullscreen(false);
-  };
-
-  const handleTryFormat1 = () => {
-    if (currentPlaylist) {
-      const embedUrl = powerHourActive
-        ? createAutoplayAlternativeEmbedUrl(currentPlaylist.id, currentVideoIndex)
-        : createAlternativeEmbedUrl(currentPlaylist.id, currentVideoIndex);
-      setCurrentPlaylist({
-        ...currentPlaylist,
-        embedUrl: embedUrl
-      });
-      setEmbedError(false);
-    }
-  };
-
-  const handleTryFormat2 = () => {
-    if (currentPlaylist) {
-      const embedUrl = powerHourActive
-        ? createAutoplayDirectEmbedUrl(currentPlaylist.id, currentVideoIndex)
-        : createDirectEmbedUrl(currentPlaylist.id, currentVideoIndex);
-      setCurrentPlaylist({
-        ...currentPlaylist,
-        embedUrl: embedUrl
-      });
-      setEmbedError(false);
-    }
   };
 
   return (
@@ -437,8 +410,8 @@ export default function Home() {
           )}
 
           {currentPlaylist && (
-            <div className={`mx-auto transition-all duration-300 ${isFullscreen ? 'max-w-full px-2' : 'max-w-6xl'}`}>
-              {isAuthenticated && isTokenExpiringSoon() && !isFullscreen && (
+            <div className={`mx-auto transition-all duration-300 max-w-6xl`}>
+              {isAuthenticated && isTokenExpiringSoon() && (
                 <div className="mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
@@ -461,23 +434,18 @@ export default function Home() {
               )}
 
               <PlayerHeader
-                isFullscreen={isFullscreen}
-                onToggleFullscreen={toggleFullscreen}
                 onResetPlaylist={resetPlaylist}
               />
 
               <VideoPlayer
                 ref={youtubePlayerRef}
                 currentPlaylist={currentPlaylist}
-                isFullscreen={isFullscreen}
                 embedError={embedError}
-                isShuffled={true}
                 shuffledIndices={shuffledIndices}
                 currentVideoIndex={currentVideoIndex}
+                timerDuration={videoDuration}
                 powerHourActive={powerHourActive}
                 onEmbedError={() => setEmbedError(true)}
-                onTryFormat1={handleTryFormat1}
-                onTryFormat2={handleTryFormat2}
                 onVideoPlay={handlePlaybackStarted}
                 onVideoEnd={handleVideoEnd}
                 onPlayerReady={handlePlayerReady}
