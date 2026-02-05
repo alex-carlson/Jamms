@@ -112,7 +112,7 @@ export default function PlaylistSelector({
                                 ? "ring-2 ring-red-600 ring-opacity-50"
                                 : ""
                                 }`}
-                            onClick={() => setSelectedPlaylist(playlist)}
+                            onClick={() => onPlaylistSelect(playlist)}
                         >
                             {/* Playlist Thumbnail */}
                             <div className="relative h-48 bg-gray-200 dark:bg-gray-700">
@@ -170,33 +170,6 @@ export default function PlaylistSelector({
                         <Play className="h-4 w-4" />
                         <span>Go to YouTube</span>
                     </a>
-                </div>
-            )}
-
-            {/* Selection Confirmation */}
-            {selectedPlaylist && (
-                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 p-6 max-w-md w-full mx-4">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                        Selected Playlist
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        {selectedPlaylist.title} ({selectedPlaylist.itemCount} videos)
-                    </p>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => setSelectedPlaylist(null)}
-                            className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-4 py-2 rounded-lg transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={() => onPlaylistSelect(selectedPlaylist)}
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Play className="h-4 w-4" />
-                            <span>Start Power Hour</span>
-                        </button>
-                    </div>
                 </div>
             )}
         </div>

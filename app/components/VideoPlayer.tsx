@@ -23,13 +23,13 @@ interface VideoPlayerProps {
     shuffledIndices: number[];
     currentVideoIndex: number;
     powerHourActive: boolean;
-    isMuted: boolean;
     onEmbedError: () => void;
     onTryFormat1: () => void;
     onTryFormat2: () => void;
     onVideoPlay?: () => void; // New prop for detecting play events
     onVideoEnd?: () => void; // New prop for when video ends naturally
     onPlayerReady?: () => void; // New prop for when player is ready
+    onVideoSeekedReady?: () => void; // New prop to notify parent when initial seek completed
 }
 
 export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
@@ -47,19 +47,13 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
     onVideoPlay,
     onVideoEnd,
     onPlayerReady,
+    onVideoSeekedReady,
 }, ref) {
     const playerRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const apiReadyRef = useRef(false);
     const seekingRef = useRef(false);
     const hasInitialSeeked = useRef(new Set<string>());
-
-    // Extract playlist ID from the current playlist
-    const getPlaylistId = useCallback(() => {
-        if (!currentPlaylist?.id) return null;
-        // Remove 'PL' prefix if present for consistency
-        return currentPlaylist.id.startsWith('PL') ? currentPlaylist.id : `PL${currentPlaylist.id}`;
-    }, [currentPlaylist?.id]);
 
     // Centralized seek function to prevent conflicts
     const seekToThird = useCallback(() => {
@@ -120,30 +114,47 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
 
     // Initialize or update player when playlist/settings change
     useEffect(() => {
-        console.log("Init Player..");
         if (apiReadyRef.current && currentPlaylist) {
             // Clear seek tracking for new playlist
             hasInitialSeeked.current.clear();
             seekingRef.current = false;
-            initializePlayer()
+            initializePlayer();
         }
-    }, [currentPlaylist, powerHourActive]);
+    }, [currentPlaylist]);
 
+    // Reset seek tracking for each new video
     useEffect(() => {
-        console.log("Playing video at: ", currentVideoIndex);
-        playVideoAt()
-    }, [currentVideoIndex])
+        hasInitialSeeked.current.clear();
+    }, [currentVideoIndex]);
 
     const initializePlayer = useCallback(() => {
         if (!window.YT || !containerRef.current || !currentPlaylist) return;
 
-        const playlistId = getPlaylistId();
-        if (!playlistId) {
+        // Get the correct videoId for shuffled playback
+        let videoId: string | undefined = undefined;
+        if (
+            currentPlaylist.videoIds &&
+            currentPlaylist.shuffledData &&
+            currentVideoIndex >= 0 &&
+            currentVideoIndex < currentPlaylist.shuffledData.length
+        ) {
+            const shuffledIdx = currentPlaylist.shuffledData[currentVideoIndex];
+            if (
+                typeof shuffledIdx === 'number' &&
+                shuffledIdx >= 0 &&
+                shuffledIdx < currentPlaylist.videoIds.length
+            ) {
+                videoId = currentPlaylist.videoIds[shuffledIdx];
+            }
+        }
+
+        if (!videoId || typeof videoId !== 'string' || videoId.length !== 11) {
+            console.error('Invalid videoId for YouTube player:', videoId, 'at shuffled index', currentVideoIndex);
             onEmbedError();
             return;
         }
 
-        console.log("Init video player");
+        console.log("Init video player", videoId, 'at shuffled index', currentVideoIndex);
 
         try {
             // Destroy existing player
@@ -159,12 +170,9 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
             // Create new player
             playerRef.current = new window.YT.Player(containerRef.current, {
                 height: '100%',
-                width: '100%',
                 playerVars: {
-                    list: playlistId,
-                    listType: 'playlist',
-                    index: currentPlaylist.shuffledData[currentVideoIndex],
-                    autoplay: powerHourActive ? 1 : 0,
+                    videoId,
+                    autoplay: 0,
                     controls: 0, // Hide all player controls
                     rel: 0, // Don't show related videos
                     modestbranding: 1,
@@ -178,27 +186,67 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
                     end: 9999999, // Set very high end time to prevent related videos overlay
                 },
                 events: {
-                    onReady: (event: any) => {
+                    onReady: (_event: unknown) => {
                         // Notify parent that player is ready
                         if (onPlayerReady) {
                             onPlayerReady();
-                            seekToThird();
                         }
                     },
                     onStateChange: (event: any) => {
                         const state = event.data;
                         // YT.PlayerState: PLAYING = 1, ENDED = 0
-                        if (state === 1 && onVideoPlay) {
-                            console.log("Playing video at shuffled index: ", currentPlaylist.shuffledData[currentVideoIndex]);
-                            onVideoPlay();
+                        if (state === 1) {
+                            // Only seek once per video
+                            const seekKey = `${currentPlaylist.id}:${currentPlaylist.shuffledData[currentVideoIndex]}`;
+                            if (!hasInitialSeeked.current.has(seekKey)) {
+                                seekToThird();
+                                hasInitialSeeked.current.add(seekKey);
+                                // Notify parent that seek occurred and video is now playing/ready
+                                if (onVideoSeekedReady) {
+                                    try {
+                                        onVideoSeekedReady();
+                                    } catch (e) {
+                                        console.error('onVideoSeekedReady callback error', e);
+                                    }
+                                }
+                            }
+                            if (onVideoPlay && powerHourActive) {
+                                console.log("Playing video at shuffled index: ", currentPlaylist.shuffledData[currentVideoIndex]);
+                                onVideoPlay();
+                            }
+                        } else if (state === 5) {
+                            // CUED state - video is loaded but not playing. Seek now and notify parent that seek is ready.
+                            const seekKey = `${currentPlaylist.id}:${currentPlaylist.shuffledData[currentVideoIndex]}`;
+                            if (!hasInitialSeeked.current.has(seekKey)) {
+                                seekToThird();
+                                hasInitialSeeked.current.add(seekKey);
+                                if (onVideoSeekedReady) {
+                                    try {
+                                        onVideoSeekedReady();
+                                    } catch (e) {
+                                        console.error('onVideoSeekedReady callback error', e);
+                                    }
+                                }
+                            }
                         } else if (state === 0 && onVideoEnd) {
                             // Video ended naturally (not stopped by timer)
                             onVideoEnd();
                         }
                     },
                     onError: (event: any) => {
-                        console.error("YouTube player error:", event.data);
-                        onEmbedError();
+                        console.error("YouTube player error:", event.data, 'for videoId', videoId, 'at shuffled index', currentVideoIndex);
+                        // Try to skip to the next video if possible
+                        if (typeof window !== 'undefined' && currentPlaylist && currentVideoIndex + 1 < currentPlaylist.shuffledData.length) {
+                            setTimeout(() => {
+                                // Use a custom event or callback to increment the index in the parent
+                                if (typeof window !== 'undefined') {
+                                    const nextEvent = new CustomEvent('powerhour-next-video');
+                                    window.dispatchEvent(nextEvent);
+                                }
+                            }, 500);
+                        } else {
+                            onEmbedError();
+                        }
                     }
                 }
             });
@@ -208,20 +256,40 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
         }
     }, [currentPlaylist.shuffledData, currentVideoIndex]);
 
-    const playVideoAt = useCallback(() => {
-        console.log("Playing video at: ", currentVideoIndex);
-        if (playerRef.current && playerRef.current.playVideoAt) {
+    const playVideoAt = useCallback((index?: number) => {
+        // Allow caller to specify an index; default to currentVideoIndex
+        const targetIndex = typeof index === 'number' ? index : currentVideoIndex;
+        if (!playerRef.current) {
+            console.log('Player not available');
+            return;
+        }
+        try {
+            const shuffledIndex = currentPlaylist.shuffledData[targetIndex];
+            const videoId = currentPlaylist.videoIds[shuffledIndex];
+            console.log("Cueing videoId:", videoId, "at shuffled index:", shuffledIndex);
+            // Use cueVideoById so the video is loaded but not played. onStateChange will emit CUED (5) when ready.
+            if (typeof playerRef.current.cueVideoById === 'function') {
+                playerRef.current.cueVideoById({ videoId, startSeconds: 0 });
+            } else if (typeof playerRef.current.loadVideoById === 'function') {
+                // As a fallback, load and then immediately pause
+                playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
+            }
+        } catch (e) {
+            console.error("Error cueing video:", e);
+        }
+    }, [currentVideoIndex, currentPlaylist.shuffledData]);
+
+    const startPlayback = useCallback(() => {
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
             try {
-                const shuffledIndex = currentPlaylist.shuffledData[currentVideoIndex];
-                playerRef.current.playVideoAt(shuffledIndex);
-                seekToThird()
+                playerRef.current.playVideo();
             } catch (e) {
-                console.error("Error playing video at index:", e);
+                console.error('Error calling playVideo on YT player', e);
             }
         } else {
-            console.log('Player or playVideoAt method not available');
+            console.log('No player.playVideo available');
         }
-    }, [currentVideoIndex, currentPlaylist.shuffledData, initializePlayer]);
+    }, []);
 
     // Method to stop current video
     const stopVideo = useCallback(() => {
@@ -238,8 +306,9 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer({
     useImperativeHandle(ref, () => ({
         playVideoAt,
         stopVideo,
+        startPlayback,
         player: playerRef.current
-    }), [playVideoAt, stopVideo]);
+    }), [playVideoAt, stopVideo, startPlayback]);
 
     // Listen for messages from YouTube iframe
     useEffect(() => {

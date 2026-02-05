@@ -1,11 +1,10 @@
 "use client";
 
-import { Play, Pause, SkipForward, Volume2, VolumeX } from "lucide-react";
+import { Play, Pause, SkipForward } from "lucide-react";
 
 interface PlayerControlsProps {
     timeRemaining: number;
     powerHourActive: boolean;
-    isMuted: boolean;
     videoDuration: number;
     currentVideoIndex: number;
     totalVideos: number;
@@ -13,7 +12,6 @@ interface PlayerControlsProps {
     onStartPowerHour: () => void;
     onStopPowerHour: () => void;
     onNextVideo: () => void;
-    onMuteToggle: () => void;
 }
 
 export default function PlayerControls({
@@ -25,9 +23,7 @@ export default function PlayerControls({
     onDurationChange,
     onStartPowerHour,
     onStopPowerHour,
-    onNextVideo,
-    isMuted,
-    onMuteToggle
+    onNextVideo
 }: PlayerControlsProps) {
     return (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
@@ -84,19 +80,6 @@ export default function PlayerControls({
 
                     {/* Control Buttons */}
                     <div className="flex flex-wrap gap-3">
-
-                        {/* <button onClick={onMuteToggle}
-                            className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2">
-                            {isMuted ? (
-                                <>
-                                    <VolumeX className="h-4 w-4" />
-                                </>
-                            ) : (
-                                <>
-                                    <Volume2 className="h-4 w-4" />
-                                </>
-                            )}
-                        </button> */}
                         {!powerHourActive ? (
                             <button
                                 onClick={onStartPowerHour}
