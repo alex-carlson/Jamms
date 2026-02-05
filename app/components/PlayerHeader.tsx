@@ -15,36 +15,17 @@ export default function PlayerHeader({
     countdown,
     videoName,
 }: PlayerHeaderProps) {
-    // 0 = empty, 1 = hidden, 2 = half opacity with videoName
-    const [displayStage, setDisplayStage] = useState<0 | 1 | 2>(0);
-
-    useEffect(() => {
-        // After 5 seconds, hide the h2
-        const hideTimeout = setTimeout(() => {
-            setDisplayStage(1);
-        }, 5000);
-
-        // After 20 seconds, show videoName at half opacity
-        const showTimeout = setTimeout(() => {
-            setDisplayStage(2);
-        }, 20000);
-
-        return () => {
-            clearTimeout(hideTimeout);
-            clearTimeout(showTimeout);
-        };
-    }, []);
+    // Only show the video title after 20 seconds (countdown === 0)
+    // Parent should manage countdown and pass it as a prop
 
     return (
         <div className="header w-full absolute left-0 top-0 bg-black z-10 p-6">
-            {displayStage !== 1 && (
+            {countdown === 0 && videoName?.trim() && (
                 <h2
                     className="text-2xl transition-opacity duration-500"
-                    style={{
-                        opacity: displayStage === 2 ? 0.5 : 1,
-                    }}
+                    style={{ opacity: 0.5 }}
                 >
-                    {displayStage === 2 ? videoName : " "}
+                    {videoName}
                 </h2>
             )}
         </div>

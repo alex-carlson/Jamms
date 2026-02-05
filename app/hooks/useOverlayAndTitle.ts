@@ -18,9 +18,24 @@ export const useOverlayAndTitle = (currentVideoIndex: number, videoDuration: num
             if (!["https://www.youtube.com", "https://www.youtube-nocookie.com"].includes(event.origin)) return;
 
             try {
-                if (typeof event.data === "string" && event.data.includes("title")) {
-                    const data = JSON.parse(event.data);
-                    if (data.title) setCurrentVideoTitle(data.title);
+                let title = "";
+                // YouTube sometimes sends stringified JSON, sometimes object
+                if (typeof event.data === "string") {
+                    // Try to parse JSON, fallback to regex
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.title && typeof data.title === "string") title = data.title;
+                    } catch {
+                        // Fallback: extract title from string
+                        const match = event.data.match(/"title":"([^"]+)"/);
+                        if (match) title = match[1];
+                    }
+                } else if (typeof event.data === "object" && event.data && event.data.title) {
+                    title = event.data.title;
+                }
+                if (title) {
+                    // Remove " - YouTube" suffix if present
+                    setCurrentVideoTitle(title.replace(/\s*-\s*YouTube$/, "").trim());
                 }
             } catch { }
         };

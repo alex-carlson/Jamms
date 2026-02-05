@@ -46,7 +46,7 @@ export default function Home() {
     usePowerHourTimer(handleTimerExpired);
 
   // Then call the overlay/title hook
-  const { showOverlay, showTitle, videoTitle, titleCountdown, startOverlayTimer, startTitleTimer, clearTimers, resetOverlayAndTitle, ...overlayProps } =
+  const { showOverlay, showTitle, videoTitle, currentVideoTitle, titleCountdown, startOverlayTimer, startTitleTimer, clearTimers, resetOverlayAndTitle, ...overlayProps } =
     useOverlayAndTitle(currentVideoIndex, videoDuration);
 
 
@@ -322,23 +322,19 @@ export default function Home() {
             <div className="player relative w-full">
               <PlayerHeader
                 onResetPlaylist={resetPlaylist}
-                showTitle={showTitle}
                 countdown={titleCountdown}
-                videoName={videoTitle}
+                videoName={currentVideoTitle}
               />
 
               <VideoPlayer
                 ref={youtubePlayerRef}
                 currentPlaylist={currentPlaylist}
-                embedError={embedError}
-                shuffledIndices={shuffledIndices}
                 currentVideoIndex={currentVideoIndex}
                 videoDuration={videoDuration}
                 powerHourActive={powerHourActive}
                 onEmbedError={() => setEmbedError(true)}
                 onVideoEnd={handleVideoEnd}
                 onPlayerReady={handlePlayerReady}
-                {...overlayProps}
               />
             </div>
 

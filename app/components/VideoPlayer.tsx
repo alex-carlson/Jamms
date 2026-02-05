@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle, useState } from "react";
 import { PlaylistData } from "../page";
 
 declare global {
@@ -31,6 +31,8 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
 
     // Track if we’ve already done the initial seek+play for a given video
     const initialPlaybackDoneRef = useRef(new Set<string>());
+    // Track if player is seeked and playing
+    const [isSeekedAndPlaying, setIsSeekedAndPlaying] = useState(false);
 
     // Load YouTube API once
     useEffect(() => {
@@ -114,7 +116,12 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                         trySeekAndPlay();
                     }
 
-                    if (state === 1 && onVideoPlay && powerHourActive) onVideoPlay();
+                    if (state === 1) {
+                        setIsSeekedAndPlaying(true);
+                        if (onVideoPlay && powerHourActive) onVideoPlay();
+                    } else {
+                        setIsSeekedAndPlaying(false);
+                    }
                     if (state === 0 && onVideoEnd) onVideoEnd();
                 },
                 onError: (event: any) => {
@@ -129,16 +136,36 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
     useEffect(() => {
         if (!playerRef.current || !currentPlaylist) return;
 
+        setIsSeekedAndPlaying(false); // Set to false when loading new video
+
         const videoId = currentPlaylist.videoIds[currentPlaylist.shuffledData[currentVideoIndex]];
         if (!videoId) return;
 
         const key = `${currentPlaylist.id}:${currentVideoIndex}`;
         initialPlaybackDoneRef.current.delete(key);
 
-        if (typeof playerRef.current.loadVideoById === "function") {
+        // Always cue the new video, then seek to 1/3 when ready
+        if (typeof playerRef.current.cueVideoById === "function") {
+            playerRef.current.cueVideoById({ videoId, startSeconds: 0 });
+        } else if (typeof playerRef.current.loadVideoById === "function") {
             playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
         }
-    }, [currentVideoIndex, currentPlaylist]);
+
+        // Try to seek to 1/3 after a short delay (for Next/timeout)
+        setTimeout(() => {
+            try {
+                const duration = playerRef.current.getDuration?.();
+                if (duration && duration > 0) {
+                    const start = Math.floor(duration / 3);
+                    const safeStart = duration < videoDuration || duration - start < 0 ? 0 : start;
+                    playerRef.current.seekTo?.(safeStart, true);
+                }
+            } catch (e) {
+                // Ignore errors
+            }
+        }, 500);
+        setIsSeekedAndPlaying(true); // Set to true after seek/play is complete
+    }, [currentVideoIndex, currentPlaylist, videoDuration]);
 
     // Expose controls to parent
     const playVideoAt = useCallback((index?: number) => {
@@ -172,7 +199,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
             <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
                 <div
                     ref={containerRef}
-                    className="absolute top-0 left-0 w-full h-full"
+                    className={`absolute top-0 left-0 w-full h-full`}
                     id={`youtube-player-${currentPlaylist?.id || 'default'}`}
                 />
             </div>
