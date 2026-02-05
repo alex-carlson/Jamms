@@ -337,20 +337,20 @@ export default function Home() {
               />
             </div>
 
-            <PlayerControls
-              timeRemaining={timeRemaining}
-              powerHourActive={powerHourActive}
-              videoDuration={videoDuration}
+            <VideoPlayer
+              ref={youtubePlayerRef}
+              currentPlaylist={currentPlaylist}
+              shuffledIndices={shuffledIndices}
               currentVideoIndex={currentVideoIndex}
-              totalVideos={totalVideos}
-              onDurationChange={setVideoDuration}
-              onStartPowerHour={handleStartFromControls}
-              onStopPowerHour={baseStop}
-              onNextVideo={onNextPressed}
+              videoDuration={videoDuration}
+              powerHourActive={powerHourActive}
+              onEmbedError={() => setEmbedError(true)}
+              onVideoEnd={handleVideoEnd}
+              onPlayerReady={handlePlayerReady}
             />
-          </div>
+
         )}
-      </div>
+          </div>
     </div>
-  );
+      );
 }
