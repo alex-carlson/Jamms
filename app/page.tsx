@@ -46,8 +46,9 @@ export default function Home() {
     usePowerHourTimer(handleTimerExpired);
 
   // Then call the overlay/title hook
-  const { showOverlay, showTitle, videoTitle, titleCountdown, startOverlayTimer, startTitleTimer, ...overlayProps } =
+  const { showOverlay, showTitle, videoTitle, titleCountdown, startOverlayTimer, startTitleTimer, clearTimers, resetOverlayAndTitle, ...overlayProps } =
     useOverlayAndTitle(currentVideoIndex, videoDuration);
+
 
 
   // Fetch playlists after login
