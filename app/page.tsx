@@ -322,6 +322,7 @@ export default function Home() {
             <div className="player relative w-full">
               <PlayerHeader
                 onResetPlaylist={resetPlaylist}
+                showTitle={showTitle}
                 countdown={titleCountdown}
                 videoName={currentVideoTitle}
               />
