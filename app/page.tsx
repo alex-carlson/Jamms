@@ -346,9 +346,9 @@ export default function Home() {
               currentVideoIndex={currentVideoIndex}
               totalVideos={totalVideos}
               onDurationChange={setVideoDuration}
-              onStartPowerHour={handleStartFromControls}
-              onStopPowerHour={baseStop}
+              onTogglePlayPause={handleStartFromControls}
               onNextVideo={onNextPressed}
+              isPlaying={powerHourActive}
             />
           </div>
         )}
