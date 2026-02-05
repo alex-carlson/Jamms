@@ -41,10 +41,14 @@ export default function Home() {
 
   const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
   const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists } = useYouTubeAPI(getAccessToken);
+  // Power hour timer comes first
+  const { powerHourActive, timeRemaining, videoDuration, setVideoDuration, startPowerHour: baseStart, stopPowerHour: baseStop, resetTimer, resetTimerToFull } =
+    usePowerHourTimer(handleTimerExpired);
+
+  // Then call the overlay/title hook
   const { showOverlay, showTitle, videoTitle, titleCountdown, startOverlayTimer, startTitleTimer, ...overlayProps } =
     useOverlayAndTitle(currentVideoIndex, videoDuration);
 
-  const { powerHourActive, timeRemaining, videoDuration, setVideoDuration, startPowerHour: baseStart, stopPowerHour: baseStop, resetTimer, resetTimerToFull } = usePowerHourTimer(handleTimerExpired);
 
   // Fetch playlists after login
   useEffect(() => {
