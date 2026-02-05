@@ -9,9 +9,9 @@ interface PlayerControlsProps {
     currentVideoIndex: number;
     totalVideos: number;
     onDurationChange: (duration: number) => void;
-    onStartPowerHour: () => void;
-    onStopPowerHour: () => void;
+    onTogglePlayPause: () => void; // toggle play/pause
     onNextVideo: () => void;
+    isPlaying: boolean; // state to determine play/pause icon
 }
 
 export default function PlayerControls({
@@ -21,14 +21,14 @@ export default function PlayerControls({
     currentVideoIndex,
     totalVideos,
     onDurationChange,
-    onStartPowerHour,
-    onStopPowerHour,
-    onNextVideo
+    onTogglePlayPause,
+    onNextVideo,
+    isPlaying,
 }: PlayerControlsProps) {
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+        <div className="fixed bottom-0 left-0 w-full px-6 py-4 bg-black text-white">
             <div className="flex flex-col gap-4">
-                {/* Duration Setting - Only show when not active */}
+                {/* Duration Setting - only show when not active */}
                 {!powerHourActive && (
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
                         <div className="text-center sm:text-left">
@@ -61,7 +61,7 @@ export default function PlayerControls({
                     {/* Timer Display */}
                     <div className="text-center sm:text-left">
                         <div className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                            {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                            {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, "0")}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                             Time remaining in current video
@@ -80,23 +80,13 @@ export default function PlayerControls({
 
                     {/* Control Buttons */}
                     <div className="flex flex-wrap gap-3">
-                        {!powerHourActive ? (
-                            <button
-                                onClick={onStartPowerHour}
-                                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2"
-                            >
-                                <Play className="h-4 w-4" />
-                                <span>Play</span>
-                            </button>
-                        ) : (
-                            <button
-                                onClick={onStopPowerHour}
-                                className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2"
-                            >
-                                <Pause className="h-4 w-4" />
-                                <span>Pause</span>
-                            </button>
-                        )}
+                        <button
+                            onClick={onTogglePlayPause}
+                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2"
+                        >
+                            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                            <span>{isPlaying ? "Pause" : "Play"}</span>
+                        </button>
 
                         <button
                             onClick={onNextVideo}
