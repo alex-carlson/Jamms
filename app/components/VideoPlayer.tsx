@@ -196,7 +196,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
 
     return (
         <div
-            className="fixed inset-0 bg-black z-0 flex items-center justify-center transition-opacity duration-700"
+            className="fixed inset-0 bg-black z-0 flex items-center justify-center"
             style={{
                 width: '100vw',
                 height: '100vh',
