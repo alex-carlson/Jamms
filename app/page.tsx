@@ -219,11 +219,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-black">
-      {/* Show background image only if video player is not loaded */}
       {currentPlaylist === null && (
-        <img
-          src="/background.png"
-          alt="Background"
+        <div
           style={{
             position: "fixed",
             top: 0,
@@ -231,10 +228,15 @@ export default function Home() {
             transform: "translateX(-50%)",
             width: "100%",
             maxWidth: "1920px",
-            objectFit: "cover",
+            height: "100vh",
             zIndex: 0,
             pointerEvents: "none",
-            opacity: "0.75"
+            backgroundImage: "url('/background.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            opacity: "0.75",
+            maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
           }}
           aria-hidden="true"
         />
@@ -346,7 +348,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="player relative w-full">
+            <div className="player relative w-full" id="cast">
               <PlayerHeader
                 ref={headerRef}
                 onResetPlaylist={resetPlaylist}
