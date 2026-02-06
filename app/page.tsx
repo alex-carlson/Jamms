@@ -21,6 +21,7 @@ export interface PlaylistData {
   totalVideos?: number;
   shuffledData: number[];
   videoIds: string[];
+  videoTitles: string[];
 }
 
 export default function Home() {
@@ -111,6 +112,7 @@ export default function Home() {
 
   const fetchAllPlaylistVideoIds = async (playlistId: string, token: string) => {
     let videoIds: string[] = [];
+    let videoTitles: string[] = [];
     let nextPageToken = "";
     do {
       const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=50${nextPageToken ? `&pageToken=${nextPageToken}` : ""}`, {
@@ -118,9 +120,10 @@ export default function Home() {
       });
       const data = await res.json();
       videoIds.push(...data.items.map((item: any) => item.snippet.resourceId.videoId));
+      videoTitles.push(...data.items.map((item: any) => item.snippet.title));
       nextPageToken = data.nextPageToken;
     } while (nextPageToken);
-    return videoIds;
+    return { videoIds, videoTitles };
   };
 
   async function handlePlaylistSubmit(url: string) {
@@ -130,7 +133,7 @@ export default function Home() {
 
     try {
       const token = getAccessToken();
-      const videoIds = await fetchAllPlaylistVideoIds(playlistId, token);
+      const { videoIds, videoTitles } = await fetchAllPlaylistVideoIds(playlistId, token);
       const shuffled = shuffleArray(videoIds.map((_, i) => i));
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
@@ -142,6 +145,7 @@ export default function Home() {
         totalVideos: videoIds.length,
         shuffledData: shuffled,
         videoIds,
+        videoTitles,
       });
       setCurrentVideoIndex(1);
       setVideoCount(0);
@@ -157,7 +161,7 @@ export default function Home() {
     setIsLoading(true);
     try {
       const token = getAccessToken();
-      const videoIds = await fetchAllPlaylistVideoIds(playlist.id, token);
+      const { videoIds, videoTitles } = await fetchAllPlaylistVideoIds(playlist.id, token);
       const shuffled = shuffleArray(videoIds.map((_, i) => i));
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
@@ -169,6 +173,7 @@ export default function Home() {
         totalVideos: videoIds.length,
         shuffledData: shuffled,
         videoIds,
+        videoTitles,
       });
       setCurrentVideoIndex(1);
       setVideoCount(0);
@@ -192,9 +197,11 @@ export default function Home() {
     setTotalVideos(50);
   };
 
+  const headerRef = useRef<any>(null);
   const onNextPressed = () => {
     goToNextVideo();
     resetTimerToFull();
+    headerRef.current?.clearTimer?.();
   };
 
   const shufflePlaylistOrder = () => setShuffledPlaylists(shuffleArray(playlists));
@@ -212,7 +219,27 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-black">
-      <div className="container mx-auto px-4 py-16">
+      {/* Show background image only if video player is not loaded */}
+      {currentPlaylist === null && (
+        <img
+          src="/background.png"
+          alt="Background"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "100%",
+            maxWidth: "1920px",
+            objectFit: "cover",
+            zIndex: 0,
+            pointerEvents: "none",
+            opacity: "0.75"
+          }}
+          aria-hidden="true"
+        />
+      )}
+      <div className="container mx-auto px-4 py-16" style={{ position: "relative", zIndex: 1 }}>
         {/* Loading during auth */}
         {authLoading && (
           <div className="max-w-md mx-auto text-center">
@@ -321,10 +348,14 @@ export default function Home() {
 
             <div className="player relative w-full">
               <PlayerHeader
+                ref={headerRef}
                 onResetPlaylist={resetPlaylist}
                 showTitle={showTitle}
-                countdown={titleCountdown}
-                videoName={currentVideoTitle}
+                videoName={
+                  currentPlaylist && currentPlaylist.videoTitles && shuffledIndices.length > 0
+                    ? currentPlaylist.videoTitles[shuffledIndices[currentVideoIndex] ?? 0] || ""
+                    : ""
+                }
               />
 
               <VideoPlayer

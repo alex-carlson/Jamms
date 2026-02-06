@@ -75,34 +75,6 @@ export default function LoginComponent({ onSignIn, isLoading, error, googleLoade
                     </ul>
                 </div>
             </div>
-
-            {/* Features */}
-            <div className="mt-8 grid grid-cols-1 gap-4 text-left">
-                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                        🎵 Use Your Playlists
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Access all your YouTube playlists directly
-                    </p>
-                </div>
-                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                        ⏰ Automatic Timer
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                        60-second intervals with seamless transitions
-                    </p>
-                </div>
-                <div className="bg-white/50 dark:bg-gray-800/50 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                        🔀 Shuffle Support
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Randomize your playlist for variety
-                    </p>
-                </div>
-            </div>
         </div>
     );
 }

@@ -195,11 +195,22 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
     }), [playVideoAt, stopVideo, startPlayback]);
 
     return (
-        <div className="bg-black rounded-2xl overflow-hidden shadow-2xl mb-6">
-            <div className="relative" style={{ paddingBottom: '56.25%', height: 0 }}>
+        <div
+            className="fixed inset-0 bg-black z-0 flex items-center justify-center transition-opacity duration-700"
+            style={{
+                width: '100vw',
+                height: '100vh',
+                opacity: isSeekedAndPlaying ? 1 : 0,
+                pointerEvents: 'none',
+            }}
+        >
+            <div
+                className="relative w-full h-full flex items-center justify-center"
+                style={{ aspectRatio: '16/9', maxWidth: '100vw', maxHeight: '100vh' }}
+            >
                 <div
                     ref={containerRef}
-                    className={`absolute top-0 left-0 w-full h-full`}
+                    className="w-full h-full"
                     id={`youtube-player-${currentPlaylist?.id || 'default'}`}
                 />
             </div>
