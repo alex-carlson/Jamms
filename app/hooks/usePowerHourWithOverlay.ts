@@ -65,7 +65,7 @@ export const usePowerHourWithOverlay = ({
 
     // Unified timer logic
     const startVideoTimer = () => {
-        const titleDelay = 45;
+        const titleDelay = 40;
         clearAllTimers();
         setPowerHourActive(true);
         setTimeRemaining(durationRef.current);

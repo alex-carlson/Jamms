@@ -27,7 +27,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentPlaylist, setCurrentPlaylist] = useState<PlaylistData | null>(null);
   const [showManualInput, setShowManualInput] = useState(false);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(1);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const [videoCount, setVideoCount] = useState(0);
   const [embedError, setEmbedError] = useState(false);
   const [shuffledIndices, setShuffledIndices] = useState<number[]>([]);
@@ -149,9 +149,6 @@ export default function Home() {
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
 
-      console.log("Shuffled playlist ids: ", shuffled);
-
-
       setCurrentPlaylist({
         id: playlist.id,
         embedUrl: createEmbedUrl(playlist.id, shuffled[0]),
@@ -228,7 +225,7 @@ export default function Home() {
         {/* Countdown overlay for last 5 seconds before title */}
         {showOverlay && (
           <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-            <div className="bg-black bg-opacity-70 rounded-xl px-8 py-6 text-white text-6xl font-bold animate-pulse">
+            <div className="bg-black bg-opacity-70 rounded-xl px-8 py-6 text-white text-6xl font-bold">
               {overlaySecondsRemaining}
             </div>
           </div>
