@@ -9,7 +9,6 @@ interface PlayerControlsProps {
     currentVideoIndex: number;
     totalVideos: number;
     onDurationChange: (duration: number) => void;
-    onTogglePlayPause: () => void; // toggle play/pause
     onNextVideo: () => void;
     isPlaying: boolean; // state to determine play/pause icon
 }
@@ -20,45 +19,15 @@ export default function PlayerControls({
     videoDuration,
     currentVideoIndex,
     totalVideos,
-    onDurationChange,
-    onTogglePlayPause,
     onNextVideo,
     isPlaying,
 }: PlayerControlsProps) {
     return (
         <div className="fixed bottom-0 left-0 w-full px-6 py-4 text-white">
             <div className="max-w-lg mx-auto flex flex-col gap-4">
-                {/* Duration Setting - only show when not active */}
-                {!powerHourActive && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-                        <div className="text-center sm:text-left">
-                            <div className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                                Video Duration
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                                How long to play each video
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm text-gray-600 dark:text-gray-300">10s</span>
-                            <input
-                                type="range"
-                                min="10"
-                                max="60"
-                                value={videoDuration}
-                                onChange={(e) => onDurationChange(parseInt(e.target.value))}
-                                className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 slider"
-                            />
-                            <span className="text-sm text-gray-600 dark:text-gray-300">60s</span>
-                            <div className="ml-2 px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium text-gray-900 dark:text-white min-w-[3rem] text-center">
-                                {videoDuration}s
-                            </div>
-                        </div>
-                    </div>
-                )}
+
 
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    {/* Timer Display */}
                     <div className="text-center sm:text-left">
                         <div
                             className="text-4xl font-bold text-white dark:text-white mb-2"
@@ -68,7 +37,6 @@ export default function PlayerControls({
                         </div>
                     </div>
 
-                    {/* Video Counter */}
                     <div className="text-center">
                         <div
                             className="text-2xl font-semibold text-white dark:text-gray-300 mb-1"
@@ -78,16 +46,7 @@ export default function PlayerControls({
                         </div>
                     </div>
 
-                    {/* Control Buttons */}
                     <div className="flex flex-wrap gap-3">
-                        {/* <button
-                            onClick={onTogglePlayPause}
-                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2"
-                        >
-                            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                            <span>{isPlaying ? "Pause" : "Play"}</span>
-                        </button> */}
-
                         <button
                             onClick={onNextVideo}
                             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center space-x-2"

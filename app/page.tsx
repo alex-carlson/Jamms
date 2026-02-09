@@ -8,11 +8,10 @@ import PlayerHeader from "./components/PlayerHeader";
 import LoginComponent from "./components/LoginComponent";
 import PlaylistSelector from "./components/PlaylistSelector";
 import OAuthSetupGuide from "./components/OAuthSetupGuide";
-import { usePowerHourTimer } from "./hooks/usePowerHourTimer";
-import { useOverlayAndTitle } from "./hooks/useOverlayAndTitle";
 import { useGoogleAuth } from "./hooks/useGoogleAuth";
 import { useYouTubeAPI, YouTubePlaylist } from "./hooks/useYouTubeAPI";
 import { extractPlaylistId, createEmbedUrl, shuffleArray } from "./hooks/useYouTubeUtils";
+import { usePowerHourWithOverlay } from "./hooks/usePowerHourWithOverlay";
 
 export interface PlaylistData {
   id: string;
@@ -33,7 +32,6 @@ export default function Home() {
   const [embedError, setEmbedError] = useState(false);
   const [shuffledIndices, setShuffledIndices] = useState<number[]>([]);
   const [totalVideos, setTotalVideos] = useState<number>(60);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [shuffledPlaylists, setShuffledPlaylists] = useState<YouTubePlaylist[]>([]);
 
 
@@ -42,15 +40,29 @@ export default function Home() {
 
   const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
   const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists } = useYouTubeAPI(getAccessToken);
+
   // Power hour timer comes first
-  const { powerHourActive, timeRemaining, videoDuration, setVideoDuration, startPowerHour: baseStart, stopPowerHour: baseStop, resetTimer, resetTimerToFull } =
-    usePowerHourTimer(handleTimerExpired);
-
-  // Then call the overlay/title hook
-  const { showOverlay, showTitle, videoTitle, currentVideoTitle, titleCountdown, startOverlayTimer, startTitleTimer, clearTimers, resetOverlayAndTitle, ...overlayProps } =
-    useOverlayAndTitle(currentVideoIndex, videoDuration);
-
-
+  const {
+    powerHourActive,
+    timeRemaining,
+    videoDuration,
+    setVideoDuration,
+    startPowerHour: baseStart,
+    stopPowerHour: baseStop,
+    resetTimer,
+    resetTimerToFull,
+    showOverlay,
+    showTitle,
+    overlaySecondsRemaining,
+    startTitleTimer,
+    clearTimers,
+    resetOverlayAndTitle,
+    // ...other returned values
+  } = usePowerHourWithOverlay({
+    onTimerExpired: handleTimerExpired,
+    currentVideoIndex,
+    initialVideoDuration: 60,
+  });
 
   // Fetch playlists after login
   useEffect(() => {
@@ -63,39 +75,12 @@ export default function Home() {
   }
 
   function handleTimerExpired() {
-    if (!timerIncrementRef.current) {
-      timerIncrementRef.current = true;
-      goToNextVideo();
-      setTimeout(() => (timerIncrementRef.current = false), 100);
-    }
+    timerIncrementRef.current = false
+    goToNextVideo();
   }
-
-  const handleStartFromControls = () => {
-    try {
-      baseStart();
-      youtubePlayerRef.current?.playVideoAt?.(currentVideoIndex) || youtubePlayerRef.current?.startPlayback?.() || youtubePlayerRef.current?.player?.playVideo?.();
-    } catch (e) {
-      console.error("Error starting playback:", e);
-    }
-  };
-
-  useEffect(() => {
-    baseStart();
-    if (powerHourActive && youtubePlayerRef.current?.playVideoAt) {
-      try { youtubePlayerRef.current.playVideoAt(currentVideoIndex); } catch (e) { console.error(e); }
-    }
-  }, [currentVideoIndex, powerHourActive]);
-
-  useEffect(() => {
-    if (youtubePlayerRef.current) {
-      youtubePlayerRef.current.playVideoAt?.(currentVideoIndex);
-    }
-  }, [currentVideoIndex]);
-
 
   function handleVideoEnd() {
     if (powerHourActive) {
-      startOverlayTimer();
       startTitleTimer();
     }
   }
@@ -103,12 +88,9 @@ export default function Home() {
   function handlePlayerReady() {
     if (powerHourActive) {
       baseStart();
-      startOverlayTimer();
       startTitleTimer();
     }
   }
-
-  const toggleFullscreen = () => setIsFullscreen((prev) => !prev);
 
   const fetchAllPlaylistVideoIds = async (playlistId: string, token: string) => {
     let videoIds: string[] = [];
@@ -138,6 +120,7 @@ export default function Home() {
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
 
+
       setCurrentPlaylist({
         id: playlistId,
         embedUrl: createEmbedUrl(playlistId, shuffled[0]),
@@ -165,6 +148,9 @@ export default function Home() {
       const shuffled = shuffleArray(videoIds.map((_, i) => i));
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
+
+      console.log("Shuffled playlist ids: ", shuffled);
+
 
       setCurrentPlaylist({
         id: playlist.id,
@@ -194,18 +180,15 @@ export default function Home() {
     setVideoCount(0);
     setEmbedError(false);
     setShuffledIndices([]);
-    setTotalVideos(50);
+    setTotalVideos(60);
   };
 
-  const headerRef = useRef<any>(null);
   const onNextPressed = () => {
+    // Always reset and start timer to full duration for next video
+    resetTimer();
+    baseStart();
     goToNextVideo();
-    resetTimerToFull();
-    headerRef.current?.clearTimer?.();
   };
-
-  const shufflePlaylistOrder = () => setShuffledPlaylists(shuffleArray(playlists));
-  const resetPlaylistOrder = () => setShuffledPlaylists([]);
 
   function shuffleArray<T>(array: T[]): T[] {
     return [...array].sort(() => Math.random() - 0.5);
@@ -242,6 +225,14 @@ export default function Home() {
         />
       )}
       <div className="container mx-auto px-4 py-16" style={{ position: "relative", zIndex: 1 }}>
+        {/* Countdown overlay for last 5 seconds before title */}
+        {showOverlay && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+            <div className="bg-black bg-opacity-70 rounded-xl px-8 py-6 text-white text-6xl font-bold animate-pulse">
+              {overlaySecondsRemaining}
+            </div>
+          </div>
+        )}
         {/* Loading during auth */}
         {authLoading && (
           <div className="max-w-md mx-auto text-center">
@@ -315,8 +306,6 @@ export default function Home() {
                   onPlaylistSelect={handleYouTubePlaylistSelect}
                   onRefreshPlaylists={fetchPlaylists}
                   onSignOut={handleSignOut}
-                  onShufflePlaylists={shufflePlaylistOrder}
-                  onResetPlaylistOrder={resetPlaylistOrder}
                   isShuffled={!!shuffledPlaylists.length}
                 />
                 <div className="text-center">
@@ -350,7 +339,7 @@ export default function Home() {
 
             <div className="player relative w-full" id="cast">
               <PlayerHeader
-                ref={headerRef}
+                key={showTitle ? `showTitle-${currentVideoIndex}` : `hideTitle-${currentVideoIndex}`}
                 onResetPlaylist={resetPlaylist}
                 showTitle={showTitle}
                 videoName={
@@ -379,7 +368,6 @@ export default function Home() {
               currentVideoIndex={currentVideoIndex}
               totalVideos={totalVideos}
               onDurationChange={setVideoDuration}
-              onTogglePlayPause={handleStartFromControls}
               onNextVideo={onNextPressed}
               isPlaying={powerHourActive}
             />

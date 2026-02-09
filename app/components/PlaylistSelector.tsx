@@ -16,8 +16,6 @@ interface PlaylistSelectorProps {
     onPlaylistSelect: (playlist: YouTubePlaylist) => void;
     onRefreshPlaylists: () => void;
     onSignOut: () => void;
-    onShufflePlaylists: () => void;
-    onResetPlaylistOrder: () => void;
     isShuffled: boolean;
 }
 
@@ -29,7 +27,6 @@ export default function PlaylistSelector({
     onPlaylistSelect,
     onRefreshPlaylists,
     onSignOut,
-    onResetPlaylistOrder,
     isShuffled,
 }: PlaylistSelectorProps) {
     const [selectedPlaylist, setSelectedPlaylist] = useState<YouTubePlaylist | null>(null);
