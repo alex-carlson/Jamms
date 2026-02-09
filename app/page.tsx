@@ -74,8 +74,38 @@ export default function Home() {
     setCurrentVideoIndex((prev) => Math.min(prev + 1, shuffledIndices.length - 1));
   }
 
-  function handleTimerExpired() {
-    timerIncrementRef.current = false
+  const playCanOpenSfx = (): Promise<void> => {
+    return new Promise((resolve) => {
+      const audio = new Audio("/sfx/can-open.mp3");
+      const cleanup = () => {
+        audio.removeEventListener("ended", handleEnded);
+        audio.removeEventListener("error", handleError);
+      };
+      const handleEnded = () => {
+        cleanup();
+        resolve();
+      };
+      const handleError = () => {
+        cleanup();
+        resolve();
+      };
+
+      audio.addEventListener("ended", handleEnded);
+      audio.addEventListener("error", handleError);
+
+      const playPromise = audio.play();
+      if (playPromise?.catch) {
+        playPromise.catch(() => {
+          cleanup();
+          resolve();
+        });
+      }
+    });
+  };
+
+  async function handleTimerExpired() {
+    timerIncrementRef.current = false;
+    await playCanOpenSfx();
     goToNextVideo();
   }
 
