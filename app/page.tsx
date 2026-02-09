@@ -10,7 +10,7 @@ import PlaylistSelector from "./components/PlaylistSelector";
 import OAuthSetupGuide from "./components/OAuthSetupGuide";
 import { useGoogleAuth } from "./hooks/useGoogleAuth";
 import { useYouTubeAPI, YouTubePlaylist } from "./hooks/useYouTubeAPI";
-import { extractPlaylistId, createEmbedUrl, shuffleArray } from "./hooks/useYouTubeUtils";
+import { extractPlaylistId, createEmbedUrl } from "./hooks/useYouTubeUtils";
 import { usePowerHourWithOverlay } from "./hooks/usePowerHourWithOverlay";
 
 export interface PlaylistData {
@@ -39,7 +39,7 @@ export default function Home() {
   const timerIncrementRef = useRef(false);
 
   const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
-  const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists } = useYouTubeAPI(getAccessToken);
+  const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists, getPublicPlaylistVideoIds } = useYouTubeAPI(getAccessToken);
 
   // Power hour timer comes first
   const {
@@ -93,8 +93,8 @@ export default function Home() {
   }
 
   const fetchAllPlaylistVideoIds = async (playlistId: string, token: string) => {
-    let videoIds: string[] = [];
-    let videoTitles: string[] = [];
+    const videoIds: string[] = [];
+    const videoTitles: string[] = [];
     let nextPageToken = "";
     do {
       const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=50${nextPageToken ? `&pageToken=${nextPageToken}` : ""}`, {
@@ -113,13 +113,13 @@ export default function Home() {
     const playlistId = extractPlaylistId(url);
     if (!playlistId) return setIsLoading(false);
 
+    console.log("Submitting playlist");
+
     try {
-      const token = getAccessToken();
-      const { videoIds, videoTitles } = await fetchAllPlaylistVideoIds(playlistId, token);
+      const { videoIds, videoTitles } = await getPublicPlaylistVideoIds(url);
       const shuffled = shuffleArray(videoIds.map((_, i) => i));
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
-
 
       setCurrentPlaylist({
         id: playlistId,
@@ -239,7 +239,7 @@ export default function Home() {
         )}
 
         {/* Sign-in / Manual Input */}
-        {!authLoading && !isAuthenticated && !showManualInput && (
+        {!authLoading && !showManualInput && (
           <div className="space-y-6">
             <LoginComponent onSignIn={signIn} isLoading={authLoading} error={authError} googleLoaded={googleLoaded} />
             {authError?.includes("authorized origins") && <OAuthSetupGuide />}
