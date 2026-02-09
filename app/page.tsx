@@ -10,7 +10,7 @@ import PlaylistSelector from "./components/PlaylistSelector";
 import OAuthSetupGuide from "./components/OAuthSetupGuide";
 import { useGoogleAuth } from "./hooks/useGoogleAuth";
 import { useYouTubeAPI, YouTubePlaylist } from "./hooks/useYouTubeAPI";
-import { extractPlaylistId, createEmbedUrl } from "./hooks/useYouTubeUtils";
+import { extractPlaylistId, createEmbedUrl, shuffleArray } from "./hooks/useYouTubeUtils";
 import { usePowerHourWithOverlay } from "./hooks/usePowerHourWithOverlay";
 
 export interface PlaylistData {
@@ -187,10 +187,6 @@ export default function Home() {
     goToNextVideo();
   };
 
-  function shuffleArray<T>(array: T[]): T[] {
-    return [...array].sort(() => Math.random() - 0.5);
-  }
-
   const handleSignOut = () => {
     signOut();
     resetPlaylist();
@@ -239,7 +235,7 @@ export default function Home() {
         )}
 
         {/* Sign-in / Manual Input */}
-        {!authLoading && !showManualInput && (
+        {!authLoading && !showManualInput && !isAuthenticated && (
           <div className="space-y-6">
             <LoginComponent onSignIn={signIn} isLoading={authLoading} error={authError} googleLoaded={googleLoaded} />
             {authError?.includes("authorized origins") && <OAuthSetupGuide />}
