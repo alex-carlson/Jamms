@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import PlaylistForm from "./components/PlaylistForm";
 import VideoPlayer from "./components/VideoPlayer";
 import PlayerControls from "./components/PlayerControls";
@@ -26,6 +26,7 @@ export interface PlaylistData {
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentPlaylist, setCurrentPlaylist] = useState<PlaylistData | null>(null);
+  const [playbackStartMode, setPlaybackStartMode] = useState<"one-third" | "full">("one-third");
   const [showManualInput, setShowManualInput] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const [videoCount, setVideoCount] = useState(0);
@@ -36,6 +37,7 @@ export default function Home() {
 
 
   const youtubePlayerRef = useRef<any>(null);
+  const fullModeDurationSyncKeyRef = useRef<string | null>(null);
   const timerIncrementRef = useRef(false);
 
   const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
@@ -48,6 +50,8 @@ export default function Home() {
     videoDuration,
     setVideoDuration,
     startPowerHour: baseStart,
+    pausePowerHour,
+    resumePowerHour,
     stopPowerHour: baseStop,
     resetTimer,
     resetTimerToFull,
@@ -106,6 +110,8 @@ export default function Home() {
   async function handleTimerExpired() {
     timerIncrementRef.current = false;
     await playCanOpenSfx();
+    resetTimer();
+    baseStart();
     goToNextVideo();
   }
 
@@ -217,11 +223,44 @@ export default function Home() {
     goToNextVideo();
   };
 
+  const onTogglePlayPause = () => {
+    if (powerHourActive) {
+      pausePowerHour();
+      youtubePlayerRef.current?.stopVideo?.();
+      return;
+    }
+
+    resumePowerHour();
+    youtubePlayerRef.current?.startPlayback?.();
+  };
+
   const handleSignOut = () => {
     signOut();
     resetPlaylist();
     setShowManualInput(false);
   };
+
+  const handleVideoDurationDetected = useCallback((durationSeconds: number) => {
+    if (playbackStartMode !== "full") return;
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
+    if (!currentPlaylist) return;
+
+    const syncKey = `${currentPlaylist.id}:${currentVideoIndex}:full`;
+    if (fullModeDurationSyncKeyRef.current === syncKey) return;
+
+    fullModeDurationSyncKeyRef.current = syncKey;
+    setVideoDuration(durationSeconds, true);
+  }, [playbackStartMode, currentPlaylist, currentVideoIndex, setVideoDuration]);
+
+  useEffect(() => {
+    if (playbackStartMode === "one-third") {
+      setVideoDuration(60, true);
+    }
+  }, [playbackStartMode, setVideoDuration]);
+
+  useEffect(() => {
+    fullModeDurationSyncKeyRef.current = null;
+  }, [currentPlaylist?.id, currentVideoIndex, playbackStartMode]);
 
   return (
     <div className="min-h-screen relative bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-black">
@@ -377,8 +416,10 @@ export default function Home() {
                 currentPlaylist={currentPlaylist}
                 currentVideoIndex={currentVideoIndex}
                 videoDuration={videoDuration}
+                playbackStartMode={playbackStartMode}
                 powerHourActive={powerHourActive}
                 onEmbedError={() => setEmbedError(true)}
+                onVideoDurationDetected={handleVideoDurationDetected}
                 onVideoEnd={handleVideoEnd}
                 onPlayerReady={handlePlayerReady}
               />
@@ -388,9 +429,12 @@ export default function Home() {
               timeRemaining={timeRemaining}
               powerHourActive={powerHourActive}
               videoDuration={videoDuration}
+              playbackStartMode={playbackStartMode}
               currentVideoIndex={currentVideoIndex}
               totalVideos={totalVideos}
               onDurationChange={setVideoDuration}
+              onPlaybackStartModeChange={setPlaybackStartMode}
+              onTogglePlayPause={onTogglePlayPause}
               onNextVideo={onNextPressed}
               isPlaying={powerHourActive}
             />

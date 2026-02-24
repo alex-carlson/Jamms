@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ACarCrash Power Hour",
   description: "Evvrybody in the cluub gettin PIPSY",
+  icons: {
+    icon: '/jamms-favicon.png',
+  },
 };
 
 export default function RootLayout({

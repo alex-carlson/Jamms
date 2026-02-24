@@ -14,15 +14,17 @@ interface VideoPlayerProps {
     currentPlaylist: PlaylistData;
     currentVideoIndex: number;
     videoDuration: number;
+    playbackStartMode: "one-third" | "full";
     powerHourActive: boolean;
     onEmbedError: () => void;
+    onVideoDurationDetected?: (durationSeconds: number) => void;
     onVideoPlay?: () => void;
     onVideoEnd?: () => void;
     onPlayerReady?: () => void;
 }
 
 export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
-    { currentPlaylist, currentVideoIndex, videoDuration, powerHourActive, onEmbedError, onVideoPlay, onVideoEnd, onPlayerReady },
+    { currentPlaylist, currentVideoIndex, videoDuration, playbackStartMode, powerHourActive, onEmbedError, onVideoDurationDetected, onVideoPlay, onVideoEnd, onPlayerReady },
     ref
 ) {
     const playerRef = useRef<any>(null);
@@ -105,10 +107,11 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                                 setTimeout(trySeekAndPlay, 100);
                                 return;
                             }
-                            const start = Math.floor(duration / 3);
-                            const safeStart = duration < videoDuration || duration - start < 0 ? 0 : start;
-
-                            playerRef.current.seekTo(safeStart, true);
+                            if (playbackStartMode === "one-third") {
+                                const start = Math.floor(duration / 3);
+                                const safeStart = duration < videoDuration || duration - start < 0 ? 0 : start;
+                                playerRef.current.seekTo(safeStart, true);
+                            }
                             playerRef.current.unMute?.();
                             playerRef.current.playVideo();
                         };
@@ -130,7 +133,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                 },
             },
         });
-    }, [currentPlaylist, currentVideoIndex, videoDuration, powerHourActive, onEmbedError, onVideoPlay, onVideoEnd, onPlayerReady]);
+    }, [currentPlaylist, currentVideoIndex, videoDuration, playbackStartMode, powerHourActive, onEmbedError, onVideoPlay, onVideoEnd, onPlayerReady]);
 
     // Load new video when currentVideoIndex changes (without destroying player)
     useEffect(() => {
@@ -144,28 +147,57 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         const key = `${currentPlaylist.id}:${currentVideoIndex}`;
         initialPlaybackDoneRef.current.delete(key);
 
-        // Always cue the new video, then seek to 1/3 when ready
-        if (typeof playerRef.current.cueVideoById === "function") {
+        // For full-start mode, actively load/play. For one-third mode, cue then seek.
+        if (playbackStartMode === "full") {
+            if (typeof playerRef.current.loadVideoById === "function") {
+                playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
+            } else if (typeof playerRef.current.cueVideoById === "function") {
+                playerRef.current.cueVideoById({ videoId, startSeconds: 0 });
+                playerRef.current.playVideo?.();
+            }
+        } else if (typeof playerRef.current.cueVideoById === "function") {
             playerRef.current.cueVideoById({ videoId, startSeconds: 0 });
         } else if (typeof playerRef.current.loadVideoById === "function") {
             playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
         }
 
-        // Try to seek to 1/3 after a short delay (for Next/timeout)
-        setTimeout(() => {
-            try {
-                const duration = playerRef.current.getDuration?.();
-                if (duration && duration > 0) {
-                    const start = Math.floor(duration / 3);
-                    const safeStart = duration < videoDuration || duration - start < 0 ? 0 : start;
-                    playerRef.current.seekTo?.(safeStart, true);
+        // Optionally seek to 1/3 after a short delay (for Next/timeout)
+        if (playbackStartMode === "one-third") {
+            setTimeout(() => {
+                try {
+                    const duration = playerRef.current.getDuration?.();
+                    if (duration && duration > 0) {
+                        const start = Math.floor(duration / 3);
+                        const safeStart = duration < videoDuration || duration - start < 0 ? 0 : start;
+                        playerRef.current.seekTo?.(safeStart, true);
+                    }
+                } catch (e) {
+                    // Ignore errors
                 }
-            } catch (e) {
-                // Ignore errors
-            }
-        }, 500);
+            }, 500);
+        }
         setIsSeekedAndPlaying(true); // Set to true after seek/play is complete
-    }, [currentVideoIndex, currentPlaylist, videoDuration]);
+    }, [currentVideoIndex, currentPlaylist, videoDuration, playbackStartMode]);
+
+    useEffect(() => {
+        if (playbackStartMode !== "full" || !playerRef.current) return;
+
+        let attempts = 0;
+        const interval = setInterval(() => {
+            attempts += 1;
+            const duration = playerRef.current?.getDuration?.();
+            if (duration && duration > 0) {
+                onVideoDurationDetected?.(Math.floor(duration));
+                clearInterval(interval);
+                return;
+            }
+            if (attempts >= 20) {
+                clearInterval(interval);
+            }
+        }, 150);
+
+        return () => clearInterval(interval);
+    }, [playbackStartMode, currentVideoIndex, onVideoDurationDetected]);
 
     // Expose controls to parent
     const playVideoAt = useCallback((index?: number) => {
