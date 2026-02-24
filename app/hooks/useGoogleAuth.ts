@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { saveAuthData, getAuthData, clearAuthData, isTokenExpiringSoon } from "../utils/cookies";
 
 interface GoogleUser {
@@ -30,6 +30,62 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
     const [error, setError] = useState<string | null>(null);
     const [googleLoaded, setGoogleLoaded] = useState(false);
 
+    const refreshAccessToken = useCallback((interactive: boolean = false) => {
+        if (typeof window === "undefined" || !window.google || !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+            return;
+        }
+
+        try {
+            const tokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+                scope: 'profile email https://www.googleapis.com/auth/youtube.readonly',
+                callback: async (response: any) => {
+                    if (!response?.access_token) {
+                        if (interactive && response?.error) {
+                            setError(`Sign-in failed: ${response.error}. Please try again.`);
+                        }
+                        return;
+                    }
+
+                    setAccessToken(response.access_token);
+
+                    try {
+                        const userResponse = await fetch(
+                            `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${response.access_token}`
+                        );
+                        const userInfo = await userResponse.json();
+
+                        const userData = {
+                            id: userInfo.id,
+                            name: userInfo.name,
+                            email: userInfo.email,
+                            picture: userInfo.picture,
+                        };
+
+                        setUser(userData);
+                        setIsAuthenticated(true);
+                        setError(null);
+
+                        const expiresIn = response.expires_in || 3600;
+                        saveAuthData(response.access_token, userData, expiresIn, 7);
+                    } catch (fetchError) {
+                        console.error("Error fetching user info:", fetchError);
+                        if (interactive) {
+                            setError("Failed to get user information");
+                        }
+                    }
+                },
+            });
+
+            tokenClient.requestAccessToken({ prompt: interactive ? 'consent' : '' });
+        } catch (refreshError) {
+            console.error("Error refreshing token:", refreshError);
+            if (interactive) {
+                setError("Sign-in failed. Please refresh the page and try again.");
+            }
+        }
+    }, []);
+
     // Effect to restore authentication from cookies on page load
     useEffect(() => {
         const restoreAuthFromCookies = () => {
@@ -39,16 +95,17 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
                 setAccessToken(authData.accessToken);
                 setIsAuthenticated(true);
                 console.log('Restored authentication from cookies');
-                
-                // Check if token is expiring soon and might need refresh
-                if (isTokenExpiringSoon(10)) {
-                    console.log('Access token expires soon, user may need to re-authenticate');
+
+                // Refresh expired/expiring token silently while keeping session alive
+                if (authData.tokenExpired || isTokenExpiringSoon(10)) {
+                    console.log('Refreshing access token for active session');
+                    refreshAccessToken(false);
                 }
             }
         };
 
         restoreAuthFromCookies();
-    }, []);
+    }, [refreshAccessToken]);
 
     useEffect(() => {
         const initializeGoogleAuth = () => {
@@ -122,57 +179,7 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
 
         setError(null);
 
-        try {
-            // Use the token client directly (bypasses One Tap origin restrictions)
-            const tokenClient = window.google.accounts.oauth2.initTokenClient({
-                client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-                scope: 'profile email https://www.googleapis.com/auth/youtube.readonly',
-                callback: async (response: any) => {
-                    if (response.access_token) {
-                        setAccessToken(response.access_token);
-
-                        // Get user info from Google API
-                        try {
-                            const userResponse = await fetch(
-                                `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${response.access_token}`
-                            );
-                            const userInfo = await userResponse.json();
-
-                            const userData = {
-                                id: userInfo.id,
-                                name: userInfo.name,
-                                email: userInfo.email,
-                                picture: userInfo.picture,
-                            };
-
-                            setUser(userData);
-                            setIsAuthenticated(true);
-                            setError(null);
-
-                            // Save to cookies for persistence
-                            const expiresIn = response.expires_in || 3600; // Default 1 hour
-                            saveAuthData(response.access_token, userData, expiresIn);
-                            console.log('Authentication data saved to cookies');
-                        } catch (error) {
-                            console.error("Error fetching user info:", error);
-                            setError("Failed to get user information");
-                        }
-                    } else if (response.error) {
-                        if (response.error === 'popup_closed') {
-                            setError("Sign-in was cancelled. Please try again.");
-                        } else {
-                            setError(`Sign-in failed: ${response.error}. Please try again.`);
-                        }
-                    }
-                },
-        });
-
-        // Request access token (opens popup)
-        tokenClient.requestAccessToken();
-        } catch (error) {
-            console.error("Error during sign in:", error);
-            setError("Sign-in failed. Please refresh the page and try again.");
-        }
+        refreshAccessToken(true);
     };
 
     const signOut = () => {
@@ -200,8 +207,8 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
     const getAccessToken = () => {
         // Check if token is expiring soon
         if (accessToken && isTokenExpiringSoon(5)) {
-            console.log('Access token is expiring soon. User should re-authenticate.');
-            setError('Your session is expiring soon. Please sign in again.');
+            console.log('Access token is expiring soon. Attempting silent refresh.');
+            refreshAccessToken(false);
         }
         return accessToken;
     };

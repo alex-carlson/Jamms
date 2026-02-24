@@ -37,7 +37,7 @@ export default function Home() {
 
 
   const youtubePlayerRef = useRef<any>(null);
-  const fullModeDurationSyncKeyRef = useRef<string | null>(null);
+  const durationSyncKeyRef = useRef<string | null>(null);
   const timerIncrementRef = useRef(false);
 
   const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
@@ -250,15 +250,20 @@ export default function Home() {
   };
 
   const handleVideoDurationDetected = useCallback((durationSeconds: number) => {
-    if (playbackStartMode !== "full") return;
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
     if (!currentPlaylist) return;
 
-    const syncKey = `${currentPlaylist.id}:${currentVideoIndex}:full`;
-    if (fullModeDurationSyncKeyRef.current === syncKey) return;
+    const syncKey = `${currentPlaylist.id}:${currentVideoIndex}:${playbackStartMode}`;
+    if (durationSyncKeyRef.current === syncKey) return;
 
-    fullModeDurationSyncKeyRef.current = syncKey;
-    setVideoDuration(durationSeconds, true);
+    durationSyncKeyRef.current = syncKey;
+
+    if (playbackStartMode === "full") {
+      setVideoDuration(durationSeconds, true);
+      return;
+    }
+
+    setVideoDuration(durationSeconds < 60 ? durationSeconds : 60, true);
   }, [playbackStartMode, currentPlaylist, currentVideoIndex, setVideoDuration]);
 
   useEffect(() => {
@@ -268,7 +273,7 @@ export default function Home() {
   }, [playbackStartMode, setVideoDuration]);
 
   useEffect(() => {
-    fullModeDurationSyncKeyRef.current = null;
+    durationSyncKeyRef.current = null;
   }, [currentPlaylist?.id, currentVideoIndex, playbackStartMode]);
 
   return (
