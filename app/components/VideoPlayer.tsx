@@ -17,6 +17,7 @@ interface VideoPlayerProps {
     playbackStartMode: "one-third" | "full";
     powerHourActive: boolean;
     onEmbedError: () => void;
+    onUnplayableVideo?: () => void;
     onVideoDurationDetected?: (durationSeconds: number) => void;
     onVideoPlay?: () => void;
     onVideoEnd?: () => void;
@@ -24,7 +25,7 @@ interface VideoPlayerProps {
 }
 
 export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
-    { currentPlaylist, currentVideoIndex, videoDuration, playbackStartMode, powerHourActive, onEmbedError, onVideoDurationDetected, onVideoPlay, onVideoEnd, onPlayerReady },
+    { currentPlaylist, currentVideoIndex, videoDuration, playbackStartMode, powerHourActive, onEmbedError, onUnplayableVideo, onVideoDurationDetected, onVideoPlay, onVideoEnd, onPlayerReady },
     ref
 ) {
     const playerRef = useRef<any>(null);
@@ -129,11 +130,15 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                 },
                 onError: (event: any) => {
                     console.error("YouTube player error", event.data);
+                    if (event.data === 150 || event.data === 101) {
+                        onUnplayableVideo?.();
+                        return;
+                    }
                     onEmbedError();
                 },
             },
         });
-    }, [currentPlaylist, currentVideoIndex, videoDuration, playbackStartMode, powerHourActive, onEmbedError, onVideoPlay, onVideoEnd, onPlayerReady]);
+    }, [currentPlaylist, currentVideoIndex, videoDuration, playbackStartMode, powerHourActive, onEmbedError, onUnplayableVideo, onVideoPlay, onVideoEnd, onPlayerReady]);
 
     // Load new video when currentVideoIndex changes (without destroying player)
     useEffect(() => {

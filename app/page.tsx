@@ -73,10 +73,10 @@ export default function Home() {
     if (isAuthenticated && playlists.length === 0) fetchPlaylists();
   }, [isAuthenticated]);
 
-  function goToNextVideo() {
+  const goToNextVideo = useCallback(() => {
     if (!currentPlaylist || !shuffledIndices.length) return;
     setCurrentVideoIndex((prev) => Math.min(prev + 1, shuffledIndices.length - 1));
-  }
+  }, [currentPlaylist, shuffledIndices.length]);
 
   const playCanOpenSfx = (): Promise<void> => {
     return new Promise((resolve) => {
@@ -233,6 +233,15 @@ export default function Home() {
     resumePowerHour();
     youtubePlayerRef.current?.startPlayback?.();
   };
+
+  const handleUnplayableVideo = useCallback(() => {
+    console.warn("Skipping unplayable YouTube video (error 150/101)");
+    if (powerHourActive) {
+      resetTimer();
+      baseStart();
+    }
+    goToNextVideo();
+  }, [powerHourActive, resetTimer, baseStart, goToNextVideo]);
 
   const handleSignOut = () => {
     signOut();
@@ -419,6 +428,7 @@ export default function Home() {
                 playbackStartMode={playbackStartMode}
                 powerHourActive={powerHourActive}
                 onEmbedError={() => setEmbedError(true)}
+                onUnplayableVideo={handleUnplayableVideo}
                 onVideoDurationDetected={handleVideoDurationDetected}
                 onVideoEnd={handleVideoEnd}
                 onPlayerReady={handlePlayerReady}
