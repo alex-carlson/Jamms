@@ -1,4 +1,4 @@
-# ACarCrash Power Hours
+# Jamms Power Hour
 
 A Next.js application that creates power hours from your YouTube playlists. Each song plays for 60 seconds before automatically advancing to the next track.
 

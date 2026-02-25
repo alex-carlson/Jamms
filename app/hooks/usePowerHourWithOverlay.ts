@@ -26,6 +26,7 @@ export const usePowerHourWithOverlay = ({
     // Overlay/Title state
     const [showOverlay, setShowOverlay] = useState(false);
     const [showTitle, setShowTitle] = useState(false);
+    const [showHeaderBackground, setShowHeaderBackground] = useState(false);
     const [videoTitle, setVideoTitle] = useState("");
     const [currentVideoTitle, setCurrentVideoTitle] = useState("");
     const currentVideoTitleRef = useRef("");
@@ -43,6 +44,7 @@ export const usePowerHourWithOverlay = ({
         }
         setShowOverlay(false);
         setShowTitle(false);
+        setShowHeaderBackground(false);
         setVideoTitle("");
         setOverlaySecondsRemaining(0);
     }, []);
@@ -97,7 +99,7 @@ export const usePowerHourWithOverlay = ({
         }
 
         setPowerHourActive(true);
-        const titleRevealAfterSeconds = 30;
+        const titleRevealAfterSeconds = durationRef.current === 30 ? 15 : 30;
         const overlayLeadInSeconds = 5;
 
         timerRef.current = setInterval(() => {
@@ -105,6 +107,7 @@ export const usePowerHourWithOverlay = ({
             const seconds = remainingRef.current;
             const elapsedSeconds = Math.max(0, durationRef.current - seconds);
             setTimeRemaining(seconds);
+            setShowHeaderBackground(elapsedSeconds < 5 && seconds > 0);
 
             // Overlay countdown logic
             if (
@@ -143,6 +146,7 @@ export const usePowerHourWithOverlay = ({
         setTimeRemaining(remainingRef.current);
         setShowOverlay(false);
         setShowTitle(false);
+        setShowHeaderBackground(true);
         setOverlaySecondsRemaining(0);
         runTimer();
     }, [clearAllTimers, runTimer]);
@@ -215,6 +219,7 @@ export const usePowerHourWithOverlay = ({
         // Overlay/Title
         showOverlay,
         showTitle,
+        showHeaderBackground,
         videoTitle,
         currentVideoTitle,
         overlaySecondsRemaining,

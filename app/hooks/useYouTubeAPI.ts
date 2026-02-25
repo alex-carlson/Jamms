@@ -14,6 +14,7 @@ export interface YouTubePlaylist {
 export interface PublicPlaylistVideos {
     videoIds: string[];
     videoTitles: string[];
+    videoAuthors: string[];
 }
 
 interface UseYouTubeAPIReturn {
@@ -106,6 +107,7 @@ export const useYouTubeAPI = (
 
         const videoIds: string[] = [];
         const videoTitles: string[] = [];
+        const videoAuthors: string[] = [];
 
         let pageToken: string | undefined;
 
@@ -138,10 +140,14 @@ export const useYouTubeAPI = (
                     const videoId =
                         item.snippet?.resourceId?.videoId;
                     const title = item.snippet?.title;
+                    const author =
+                        item.snippet?.videoOwnerChannelTitle ??
+                        item.snippet?.channelTitle;
 
                     if (videoId) {
                         videoIds.push(videoId);
                         videoTitles.push(title ?? "");
+                        videoAuthors.push(author ?? "");
                     }
                 }
 
@@ -152,7 +158,7 @@ export const useYouTubeAPI = (
             throw err;
         }
 
-        return { videoIds, videoTitles };
+        return { videoIds, videoTitles, videoAuthors };
     };
 
     return {

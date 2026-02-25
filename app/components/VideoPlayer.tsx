@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useState } from "react";
 import { PlaylistData } from "../page";
 
 declare global {
@@ -14,7 +14,7 @@ interface VideoPlayerProps {
     currentPlaylist: PlaylistData;
     currentVideoIndex: number;
     videoDuration: number;
-    playbackStartMode: "one-third" | "full";
+    playbackStartMode: "thirty-seconds" | "one-third" | "full";
     powerHourActive: boolean;
     onEmbedError: () => void;
     onUnplayableVideo?: () => void;
@@ -31,6 +31,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
     const playerRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const apiReadyRef = useRef(false);
+    const volumeFadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const getOneThirdModeStart = useCallback((duration: number) => {
         const oneThirdStart = Math.floor(duration / 3);
@@ -47,6 +48,61 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
     const initialPlaybackDoneRef = useRef(new Set<string>());
     // Track if player is seeked and playing
     const [isSeekedAndPlaying, setIsSeekedAndPlaying] = useState(false);
+
+    const stopVolumeFade = useCallback(() => {
+        if (volumeFadeIntervalRef.current) {
+            clearInterval(volumeFadeIntervalRef.current);
+            volumeFadeIntervalRef.current = null;
+        }
+    }, []);
+
+    const fadePlayerVolume = useCallback((targetVolume: number, durationMs = 400, onComplete?: () => void) => {
+        if (!playerRef.current) {
+            onComplete?.();
+            return;
+        }
+
+        stopVolumeFade();
+
+        const safeTarget = Math.max(0, Math.min(100, Math.floor(targetVolume)));
+        if (safeTarget > 0 && typeof playerRef.current.unMute === "function") {
+            playerRef.current.unMute();
+        }
+
+        const startVolume = typeof playerRef.current.getVolume === "function"
+            ? Number(playerRef.current.getVolume()) || 0
+            : 0;
+
+        if (durationMs <= 0 || startVolume === safeTarget) {
+            if (typeof playerRef.current.setVolume === "function") {
+                playerRef.current.setVolume(safeTarget);
+            }
+            onComplete?.();
+            return;
+        }
+
+        const stepMs = 50;
+        const totalSteps = Math.max(1, Math.round(durationMs / stepMs));
+        let step = 0;
+
+        volumeFadeIntervalRef.current = setInterval(() => {
+            step += 1;
+            const progress = Math.min(1, step / totalSteps);
+            const nextVolume = Math.round(startVolume + (safeTarget - startVolume) * progress);
+
+            if (typeof playerRef.current?.setVolume === "function") {
+                playerRef.current.setVolume(Math.max(0, Math.min(100, nextVolume)));
+            }
+
+            if (progress >= 1) {
+                stopVolumeFade();
+                if (safeTarget === 0 && typeof playerRef.current?.mute === "function") {
+                    playerRef.current.mute();
+                }
+                onComplete?.();
+            }
+        }, stepMs);
+    }, [stopVolumeFade]);
 
     // Load YouTube API once
     useEffect(() => {
@@ -68,6 +124,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         }
 
         return () => {
+            stopVolumeFade();
             playerRef.current?.destroy();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,6 +160,9 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
             },
             events: {
                 onReady: () => {
+                    if (typeof playerRef.current?.setVolume === "function") {
+                        playerRef.current.setVolume(0);
+                    }
                     onPlayerReady?.();
                 },
                 onStateChange: (event: any) => {
@@ -119,11 +179,12 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                                 setTimeout(trySeekAndPlay, 100);
                                 return;
                             }
-                            if (playbackStartMode === "one-third") {
+                            if (playbackStartMode !== "full") {
                                 const safeStart = getOneThirdModeStart(duration);
                                 playerRef.current.seekTo(safeStart, true);
                             }
                             playerRef.current.unMute?.();
+                            fadePlayerVolume(100, 400);
                             playerRef.current.playVideo();
                         };
 
@@ -131,9 +192,11 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                     }
 
                     if (state === 1) {
+                        fadePlayerVolume(100, 400);
                         setIsSeekedAndPlaying(true);
                         if (onVideoPlay && powerHourActive) onVideoPlay();
-                    } else {
+                    } else if (state === 0 || state === -1 || state === 3 || state === 5) {
+                        fadePlayerVolume(0, 400);
                         setIsSeekedAndPlaying(false);
                     }
                     if (state === 0 && onVideoEnd) onVideoEnd();
@@ -148,7 +211,13 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                 },
             },
         });
-    }, [currentPlaylist, currentVideoIndex, playbackStartMode, powerHourActive, onEmbedError, onUnplayableVideo, onVideoPlay, onVideoEnd, onPlayerReady, getOneThirdModeStart]);
+    }, [currentPlaylist, currentVideoIndex, playbackStartMode, powerHourActive, onEmbedError, onUnplayableVideo, onVideoPlay, onVideoEnd, onPlayerReady, getOneThirdModeStart, fadePlayerVolume]);
+
+    // Hide synchronously on playlist/index/mode change to prevent thumbnail flash before playback.
+    useLayoutEffect(() => {
+        fadePlayerVolume(0, 0);
+        setIsSeekedAndPlaying(false);
+    }, [currentPlaylist?.id, currentVideoIndex, playbackStartMode, fadePlayerVolume]);
 
     // Load new video when currentVideoIndex changes (without destroying player)
     useEffect(() => {
@@ -162,7 +231,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         const key = `${currentPlaylist.id}:${currentVideoIndex}`;
         initialPlaybackDoneRef.current.delete(key);
 
-        // For full-start mode, actively load/play. For one-third mode, cue then seek.
+        // For full mode, actively load/play from start. For other modes, cue then seek.
         if (playbackStartMode === "full") {
             if (typeof playerRef.current.loadVideoById === "function") {
                 playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
@@ -177,7 +246,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         }
 
         // Optionally seek to 1/3 after a short delay (for Next/timeout)
-        if (playbackStartMode === "one-third") {
+        if (playbackStartMode !== "full") {
             setTimeout(() => {
                 try {
                     const duration = playerRef.current.getDuration?.();
@@ -190,7 +259,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                 }
             }, 500);
         }
-        setIsSeekedAndPlaying(true); // Set to true after seek/play is complete
+        // Keep hidden until player emits a visible state (playing/paused)
     }, [currentVideoIndex, currentPlaylist, playbackStartMode, getOneThirdModeStart]);
 
     useEffect(() => {
@@ -226,12 +295,16 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
     }, [currentPlaylist, currentVideoIndex]);
 
     const stopVideo = useCallback(() => {
-        playerRef.current?.pauseVideo();
-    }, []);
+        fadePlayerVolume(0, 400, () => {
+            playerRef.current?.pauseVideo();
+        });
+    }, [fadePlayerVolume]);
 
     const startPlayback = useCallback(() => {
+        fadePlayerVolume(0, 0);
         playerRef.current?.playVideo();
-    }, []);
+        fadePlayerVolume(100, 400);
+    }, [fadePlayerVolume]);
 
     useImperativeHandle(ref, () => ({
         playVideoAt,

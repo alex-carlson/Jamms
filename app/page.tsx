@@ -21,12 +21,13 @@ export interface PlaylistData {
   shuffledData: number[];
   videoIds: string[];
   videoTitles: string[];
+  videoAuthors: string[];
 }
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentPlaylist, setCurrentPlaylist] = useState<PlaylistData | null>(null);
-  const [playbackStartMode, setPlaybackStartMode] = useState<"one-third" | "full">("one-third");
+  const [playbackStartMode, setPlaybackStartMode] = useState<"thirty-seconds" | "one-third" | "full">("one-third");
   const [showManualInput, setShowManualInput] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const [videoCount, setVideoCount] = useState(0);
@@ -39,6 +40,7 @@ export default function Home() {
   const youtubePlayerRef = useRef<any>(null);
   const durationSyncKeyRef = useRef<string | null>(null);
   const timerIncrementRef = useRef(false);
+  const previousPlaybackModeRef = useRef(playbackStartMode);
 
   const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
   const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists, getPublicPlaylistVideoIds } = useYouTubeAPI(getAccessToken);
@@ -57,6 +59,7 @@ export default function Home() {
     resetTimerToFull,
     showOverlay,
     showTitle,
+    showHeaderBackground,
     overlaySecondsRemaining,
     startTitleTimer,
     clearTimers,
@@ -131,6 +134,7 @@ export default function Home() {
   const fetchAllPlaylistVideoIds = async (playlistId: string, token: string) => {
     const videoIds: string[] = [];
     const videoTitles: string[] = [];
+    const videoAuthors: string[] = [];
     let nextPageToken = "";
     do {
       const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=50${nextPageToken ? `&pageToken=${nextPageToken}` : ""}`, {
@@ -139,9 +143,10 @@ export default function Home() {
       const data = await res.json();
       videoIds.push(...data.items.map((item: any) => item.snippet.resourceId.videoId));
       videoTitles.push(...data.items.map((item: any) => item.snippet.title));
+      videoAuthors.push(...data.items.map((item: any) => item.snippet.videoOwnerChannelTitle ?? item.snippet.channelTitle ?? ""));
       nextPageToken = data.nextPageToken;
     } while (nextPageToken);
-    return { videoIds, videoTitles };
+    return { videoIds, videoTitles, videoAuthors };
   };
 
   async function handlePlaylistSubmit(url: string) {
@@ -152,7 +157,7 @@ export default function Home() {
     console.log("Submitting playlist");
 
     try {
-      const { videoIds, videoTitles } = await getPublicPlaylistVideoIds(url);
+      const { videoIds, videoTitles, videoAuthors } = await getPublicPlaylistVideoIds(url);
       const shuffled = shuffleArray(videoIds.map((_, i) => i));
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
@@ -165,8 +170,9 @@ export default function Home() {
         shuffledData: shuffled,
         videoIds,
         videoTitles,
+        videoAuthors,
       });
-      setCurrentVideoIndex(1);
+      setCurrentVideoIndex(0);
       setVideoCount(0);
       setEmbedError(false);
     } catch (err) {
@@ -180,7 +186,7 @@ export default function Home() {
     setIsLoading(true);
     try {
       const token = getAccessToken();
-      const { videoIds, videoTitles } = await fetchAllPlaylistVideoIds(playlist.id, token);
+      const { videoIds, videoTitles, videoAuthors } = await fetchAllPlaylistVideoIds(playlist.id, token);
       const shuffled = shuffleArray(videoIds.map((_, i) => i));
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
@@ -193,8 +199,9 @@ export default function Home() {
         shuffledData: shuffled,
         videoIds,
         videoTitles,
+        videoAuthors,
       });
-      setCurrentVideoIndex(1);
+      setCurrentVideoIndex(0);
       setVideoCount(0);
       setEmbedError(false);
     } catch {
@@ -263,44 +270,63 @@ export default function Home() {
       return;
     }
 
+    if (playbackStartMode === "thirty-seconds") {
+      setVideoDuration(durationSeconds < 30 ? durationSeconds : 30, true);
+      return;
+    }
+
     setVideoDuration(durationSeconds < 60 ? durationSeconds : 60, true);
   }, [playbackStartMode, currentPlaylist, currentVideoIndex, setVideoDuration]);
 
   useEffect(() => {
+    // Only restart timer if playback mode actually changed
+    if (previousPlaybackModeRef.current === playbackStartMode) {
+      return;
+    }
+    previousPlaybackModeRef.current = playbackStartMode;
+
+    if (playbackStartMode === "thirty-seconds") {
+      setVideoDuration(30, true);
+      if (powerHourActive) {
+        resetTimer();
+        baseStart();
+      }
+      return;
+    }
+
     if (playbackStartMode === "one-third") {
       setVideoDuration(60, true);
+      if (powerHourActive) {
+        resetTimer();
+        baseStart();
+      }
+      return;
     }
-  }, [playbackStartMode, setVideoDuration]);
+
+    // "full" mode
+    if (powerHourActive) {
+      resetTimer();
+      baseStart();
+    }
+  }, [playbackStartMode, setVideoDuration, powerHourActive, resetTimer, baseStart]);
 
   useEffect(() => {
     durationSyncKeyRef.current = null;
   }, [currentPlaylist?.id, currentVideoIndex, playbackStartMode]);
 
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-black">
-      {currentPlaylist === null && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "100%",
-            maxWidth: "1920px",
-            height: "100vh",
-            zIndex: 0,
-            pointerEvents: "none",
-            backgroundImage: "url('/background.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            opacity: "0.75",
-            maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-          }}
-          aria-hidden="true"
-        />
+    <div className={`min-h-screen relative ${currentPlaylist ? "bg-black" : ""}`}>
+      {/* Header - hidden if playing a video */}
+      {!currentPlaylist && (
+        <div className="max-w-4xl mx-auto">
+          <img src="hamms-background.png" alt="" className="w-full" />
+          <div className="text-center py-8 bg-white">
+            <h1 className="text-5xl font-bold mb-6 text-red-600">JAMMS</h1>
+          </div>
+        </div>
       )}
-      <div className="container mx-auto px-4 py-16" style={{ position: "relative", zIndex: 1 }}>
+
+      <div className="container mx-auto pb-2" style={{ position: "relative", zIndex: 1 }}>
         {/* Countdown overlay for last 5 seconds before title */}
         {showOverlay && (
           <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
@@ -313,31 +339,23 @@ export default function Home() {
         {authLoading && (
           <div className="max-w-md mx-auto text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-300">Initializing...</p>
+            <p className="text-gray-800">Initializing...</p>
           </div>
         )}
 
         {/* Sign-in / Manual Input */}
         {!authLoading && !showManualInput && !isAuthenticated && (
-          <div className="space-y-6">
-            <LoginComponent onSignIn={signIn} isLoading={authLoading} error={authError} googleLoaded={googleLoaded} />
+          <div className="content">
+            <LoginComponent onSignIn={signIn} isLoading={authLoading} error={authError} googleLoaded={googleLoaded} onManualInputClick={() => setShowManualInput(true)} />
             {authError?.includes("authorized origins") && <OAuthSetupGuide />}
-            <div className="text-center">
-              <button
-                onClick={() => setShowManualInput(true)}
-                className={`text-sm px-4 py-2 rounded-lg transition-colors ${authError ? "bg-blue-600 hover:bg-blue-700 text-white font-medium" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline"}`}
-              >
-                {authError ? "→ Use Manual Playlist URL Instead" : "Or enter a playlist URL manually"}
-              </button>
-            </div>
           </div>
         )}
 
         {(!authLoading && showManualInput && !currentPlaylist) && (
-          <div className="space-y-4">
+          <div className="content">
             <PlaylistForm onSubmit={handlePlaylistSubmit} isLoading={isLoading} />
-            <div className="text-center">
-              <button onClick={() => setShowManualInput(false)} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline">
+            <div className="text-center bg-white py-4">
+              <button onClick={() => setShowManualInput(false)} className="text-sm text-gray-800 hover:text-gray-900 underline">
                 ← Back to Google Sign In
               </button>
             </div>
@@ -346,14 +364,14 @@ export default function Home() {
 
         {/* Playlist Selector */}
         {isAuthenticated && !currentPlaylist && !showManualInput && user && (
-          <div className="space-y-6">
+          <div className="content">
             {isTokenExpiringSoon() && (
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div className="flex items-start space-x-3">
-                  <div className="text-yellow-600 dark:text-yellow-400">⚠️</div>
+                  <div className="text-yellow-600">⚠️</div>
                   <div>
-                    <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Session Expiring Soon</h3>
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">Consider signing in again for uninterrupted access.</p>
+                    <h3 className="text-sm font-medium text-yellow-800">Session Expiring Soon</h3>
+                    <p className="text-sm text-yellow-700 mt-1">Consider signing in again for uninterrupted access.</p>
                     <button
                       onClick={() => { signOut(); setTimeout(signIn, 100); }}
                       className="mt-2 text-sm bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded font-medium transition-colors"
@@ -368,7 +386,7 @@ export default function Home() {
             {isLoading && (
               <div className="max-w-md mx-auto text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-                <p className="text-gray-600 dark:text-gray-300">Loading playlist videos...</p>
+                <p className="text-gray-800">Loading playlist videos...</p>
               </div>
             )}
 
@@ -385,7 +403,7 @@ export default function Home() {
                   isShuffled={!!shuffledPlaylists.length}
                 />
                 <div className="text-center">
-                  <button onClick={() => setShowManualInput(true)} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline">
+                  <button onClick={() => setShowManualInput(true)} className="text-sm text-gray-800 hover:text-gray-900 underline">
                     Or enter a playlist URL manually
                   </button>
                 </div>
@@ -397,10 +415,10 @@ export default function Home() {
         {currentPlaylist && (
           <div className="mx-auto transition-all duration-300 max-w-6xl">
             {isAuthenticated && isTokenExpiringSoon() && (
-              <div className="mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 flex items-center justify-between">
+              <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <span className="text-yellow-600 dark:text-yellow-400">⚠️</span>
-                  <span className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                  <span className="text-yellow-600">⚠️</span>
+                  <span className="text-sm text-yellow-800 font-medium">
                     Session expiring soon
                   </span>
                 </div>
@@ -418,9 +436,15 @@ export default function Home() {
                 key={showTitle ? `showTitle-${currentVideoIndex}` : `hideTitle-${currentVideoIndex}`}
                 onResetPlaylist={resetPlaylist}
                 showTitle={showTitle}
+                showHeaderBackground={showHeaderBackground}
                 videoName={
                   currentPlaylist && currentPlaylist.videoTitles && shuffledIndices.length > 0
                     ? currentPlaylist.videoTitles[shuffledIndices[currentVideoIndex] ?? 0] || ""
+                    : ""
+                }
+                videoAuthor={
+                  currentPlaylist && currentPlaylist.videoAuthors && shuffledIndices.length > 0
+                    ? currentPlaylist.videoAuthors[shuffledIndices[currentVideoIndex] ?? 0] || ""
                     : ""
                 }
               />

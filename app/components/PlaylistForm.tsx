@@ -75,24 +75,24 @@ export default function PlaylistForm({ onSubmit, isLoading }: PlaylistFormProps)
     };
 
     return (
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto bg-white">
             {/* Header */}
             <div className="text-center mb-12">
-                <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                    ACarCrash Power Hours
+                <h1 className="text-5xl font-bold text-gray-800 mb-4">
+                    JAMMS
                 </h1>
-                <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
+                <p className="text-xl text-gray-800 mb-8">
                     Enter a youtube playlist url and create an automatic power hour
                 </p>
             </div>
 
             {/* Main Form */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 mb-8">
+            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
                         <label
                             htmlFor="playlist-url"
-                            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                            className="block text-sm font-medium text-gray-700 mb-2"
                         >
                             YouTube Playlist URL
                         </label>
@@ -103,16 +103,13 @@ export default function PlaylistForm({ onSubmit, isLoading }: PlaylistFormProps)
                                 value={playlistUrl}
                                 onChange={handleUrlChange}
                                 placeholder="https://www.youtube.com/playlist?list=..."
-                                className={`w-full px-4 py-3 border rounded-lg text-gray-900 dark:text-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all ${!isValidUrl
-                                    ? "border-red-500 dark:border-red-500"
-                                    : "border-gray-300 dark:border-gray-600"
-                                    }`}
+                                className={`w-full px-4 py-3 border rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all ${!isValidUrl ? "border-red-500" : "border-gray-300"}`}
                                 disabled={isLoading}
                             />
                             <button
                                 type="button"
                                 onClick={handlePaste}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors flex items-center gap-1"
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-600 hover:text-gray-800 transition-colors flex items-center gap-1"
                                 disabled={isLoading}
                             >
                                 <Clipboard className="h-4 w-4" />
@@ -120,7 +117,7 @@ export default function PlaylistForm({ onSubmit, isLoading }: PlaylistFormProps)
                             </button>
                         </div>
                         {!isValidUrl && (
-                            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                            <p className="mt-2 text-sm text-red-600">
                                 Please enter a valid YouTube playlist URL
                             </p>
                         )}
@@ -148,10 +145,10 @@ export default function PlaylistForm({ onSubmit, isLoading }: PlaylistFormProps)
 
             {/* Example URLs */}
             <div className="mt-8 text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                <p className="text-sm text-gray-700 mb-2">
                     Supported URL formats:
                 </p>
-                <div className="text-xs text-gray-400 dark:text-gray-500 space-y-1">
+                <div className="text-xs text-gray-600 space-y-1">
                     <div>youtube.com/playlist?list=PLxxxxxx</div>
                     <div>youtube.com/watch?v=xxxxx&list=PLxxxxxx</div>
                     <div>youtu.be/xxxxx?list=PLxxxxxx</div>
