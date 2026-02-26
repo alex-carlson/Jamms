@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Lexend, Libre_Caslon_Text } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css";
 
 const lexend = Lexend({
@@ -29,10 +30,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${lexend.variable} ${libreCaslonText.variable} antialiased`}
-      >
-        {children}
+    <body
+    className={`${lexend.variable} ${libreCaslonText.variable} antialiased`}
+    >
+    {children}
+    <SpeedInsights/>
       </body>
     </html>
   );

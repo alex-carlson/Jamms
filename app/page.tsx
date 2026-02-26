@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
+import Header from "./components/Header";
+import Navigation from "./components/Navigation";
 import PlaylistForm from "./components/PlaylistForm";
 import VideoPlayer from "./components/VideoPlayer";
 import PlayerControls from "./components/PlayerControls";
@@ -12,6 +15,7 @@ import { useGoogleAuth } from "./hooks/useGoogleAuth";
 import { useYouTubeAPI, YouTubePlaylist } from "./hooks/useYouTubeAPI";
 import { extractPlaylistId, createEmbedUrl, shuffleArray } from "./hooks/useYouTubeUtils";
 import { usePowerHourWithOverlay } from "./hooks/usePowerHourWithOverlay";
+import { supabase } from "../lib/supabase";
 
 export interface PlaylistData {
   id: string;
@@ -149,6 +153,57 @@ export default function Home() {
     return { videoIds, videoTitles, videoAuthors };
   };
 
+  const trackPlaylistPlay = async (youtubeUrl: string) => {
+    try {
+      const playlistId = extractPlaylistId(youtubeUrl);
+      if (!playlistId) return;
+
+      // Check if playlist exists
+      const { data: existingPlaylists, error: selectError } = await supabase
+        .from('playlist_plays')
+        .select('id, plays')
+        .eq('youtube_url', youtubeUrl)
+        .limit(1);
+
+      if (selectError) {
+        console.error('Error checking playlist:', selectError);
+        return;
+      }
+
+      const existingPlaylist = existingPlaylists?.[0];
+
+      if (existingPlaylist) {
+        // Increment plays if playlist exists
+        const { error: updateError } = await supabase
+          .from('playlist_plays')
+          .update({ 
+            plays: existingPlaylist.plays + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingPlaylist.id);
+
+        if (updateError) {
+          console.error('Error updating playlist plays:', updateError);
+        }
+      } else {
+        // Insert new playlist with 1 play
+        const { error: insertError } = await supabase
+          .from('playlist_plays')
+          .insert({
+            youtube_url: youtubeUrl,
+            playlist_id: playlistId,
+            plays: 1
+          });
+
+        if (insertError) {
+          console.error('Error inserting new playlist:', insertError);
+        }
+      }
+    } catch (error) {
+      console.error('Error tracking playlist play:', error);
+    }
+  };
+
   async function handlePlaylistSubmit(url: string) {
     setIsLoading(true);
     const playlistId = extractPlaylistId(url);
@@ -162,7 +217,7 @@ export default function Home() {
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
 
-      setCurrentPlaylist({
+      const playlistData = {
         id: playlistId,
         embedUrl: createEmbedUrl(playlistId, shuffled[0]),
         originalUrl: url,
@@ -171,10 +226,15 @@ export default function Home() {
         videoIds,
         videoTitles,
         videoAuthors,
-      });
+      };
+
+      setCurrentPlaylist(playlistData);
       setCurrentVideoIndex(0);
       setVideoCount(0);
       setEmbedError(false);
+
+      // Track playlist play in Supabase
+      trackPlaylistPlay(url);
     } catch (err) {
       setEmbedError(true);
     } finally {
@@ -191,19 +251,25 @@ export default function Home() {
       setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
 
-      setCurrentPlaylist({
+      const playlistUrl = `https://www.youtube.com/playlist?list=${playlist.id}`;
+      const playlistData = {
         id: playlist.id,
         embedUrl: createEmbedUrl(playlist.id, shuffled[0]),
-        originalUrl: `https://www.youtube.com/playlist?list=${playlist.id}`,
+        originalUrl: playlistUrl,
         totalVideos: videoIds.length,
         shuffledData: shuffled,
         videoIds,
         videoTitles,
         videoAuthors,
-      });
+      };
+
+      setCurrentPlaylist(playlistData);
       setCurrentVideoIndex(0);
       setVideoCount(0);
       setEmbedError(false);
+
+      // Track playlist play in Supabase
+      trackPlaylistPlay(playlistUrl);
     } catch {
       setEmbedError(true);
     } finally {
@@ -315,15 +381,15 @@ export default function Home() {
   }, [currentPlaylist?.id, currentVideoIndex, playbackStartMode]);
 
   return (
-    <div className={`min-h-screen relative p-2 ${currentPlaylist ? "bg-black" : ""}`}>
+    <div className={`min-h-screen relative p-2`}>
       {/* Header - hidden if playing a video */}
       {!currentPlaylist && (
-        <div className="max-w-4xl mx-auto mt-8">
-          <img src="hamms-background.png" alt="" className="w-full" />
-          <div className="text-center py-8 bg-white">
-            <h1 className="text-5xl font-bold mb-6 text-red-600 serif">JAMMS</h1>
-          </div>
-        </div>
+        <Header title="JAMMS" />
+      )}
+
+      {/* Navigation - visible when not playing a video */}
+      {!currentPlaylist && (
+        <Navigation currentPage="power-hour" />
       )}
 
       <div className="container mx-auto pb-2" style={{ position: "relative", zIndex: 1 }}>

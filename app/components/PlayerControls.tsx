@@ -42,7 +42,7 @@ export default function PlayerControls({
                         {formattedTime}
                     </div>
                     <div className="text-4xl font-light text-white" style={displayTextStyle}>
-                        {currentVideoIndex}/{totalVideos}
+                        {currentVideoIndex + 1}/{totalVideos + 1}
                     </div>
                     <div className="flex items-center gap-2">
                         <button
