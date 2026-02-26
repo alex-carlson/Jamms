@@ -12,12 +12,9 @@ interface LoginComponentProps {
 
 export default function LoginComponent({ onSignIn, isLoading, error, googleLoaded = true, onManualInputClick }: LoginComponentProps) {
     return (
-        <div className="max-w-4xl mx-auto text-center bg-white">
+        <div className="max-w-md mx-auto text-center">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-5xl font-bold mb-6 pt-4">
-                    JAMMS
-                </h1>
                 <p className="text-xl text-gray-600">
                     Connect your YouTube account to access your playlists
                 </p>

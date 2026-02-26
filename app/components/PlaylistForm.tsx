@@ -6,9 +6,10 @@ import { Clipboard, Rocket } from "lucide-react";
 interface PlaylistFormProps {
     onSubmit: (url: string) => void;
     isLoading: boolean;
+    onBackToSignIn: () => void;
 }
 
-export default function PlaylistForm({ onSubmit, isLoading }: PlaylistFormProps) {
+export default function PlaylistForm({ onSubmit, isLoading, onBackToSignIn }: PlaylistFormProps) {
     const [playlistUrl, setPlaylistUrl] = useState("");
     const [isValidUrl, setIsValidUrl] = useState(true);
 
@@ -75,19 +76,16 @@ export default function PlaylistForm({ onSubmit, isLoading }: PlaylistFormProps)
     };
 
     return (
-        <div className="max-w-2xl mx-auto bg-white">
+        <div className="form">
             {/* Header */}
             <div className="text-center mb-12">
-                <h1 className="text-5xl font-bold text-gray-800 mb-4">
-                    JAMMS
-                </h1>
                 <p className="text-xl text-gray-800 mb-8">
                     Enter a youtube playlist url and create an automatic power hour
                 </p>
             </div>
 
             {/* Main Form */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <div className="p-8 mb-8 max-w-xl mx-auto">
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
                         <label
@@ -153,6 +151,11 @@ export default function PlaylistForm({ onSubmit, isLoading }: PlaylistFormProps)
                     <div>youtube.com/watch?v=xxxxx&list=PLxxxxxx</div>
                     <div>youtu.be/xxxxx?list=PLxxxxxx</div>
                 </div>
+            </div>
+            <div className="text-center bg-white py-4">
+                <button onClick={onBackToSignIn} className="text-sm text-gray-800 hover:text-gray-900 underline">
+                    ← Back to Google Sign In
+                </button>
             </div>
         </div>
     );

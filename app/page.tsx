@@ -315,13 +315,13 @@ export default function Home() {
   }, [currentPlaylist?.id, currentVideoIndex, playbackStartMode]);
 
   return (
-    <div className={`min-h-screen relative ${currentPlaylist ? "bg-black" : ""}`}>
+    <div className={`min-h-screen relative p-2 ${currentPlaylist ? "bg-black" : ""}`}>
       {/* Header - hidden if playing a video */}
       {!currentPlaylist && (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto mt-8">
           <img src="hamms-background.png" alt="" className="w-full" />
           <div className="text-center py-8 bg-white">
-            <h1 className="text-5xl font-bold mb-6 text-red-600">JAMMS</h1>
+            <h1 className="text-5xl font-bold mb-6 text-red-600 serif">JAMMS</h1>
           </div>
         </div>
       )}
@@ -337,7 +337,7 @@ export default function Home() {
         )}
         {/* Loading during auth */}
         {authLoading && (
-          <div className="max-w-md mx-auto text-center">
+          <div className="max-w-md mx-auto text-center bg-white">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
             <p className="text-gray-800">Initializing...</p>
           </div>
@@ -345,20 +345,15 @@ export default function Home() {
 
         {/* Sign-in / Manual Input */}
         {!authLoading && !showManualInput && !isAuthenticated && (
-          <div className="content">
+          <div className="content bg-white max-w-4xl mx-auto">
             <LoginComponent onSignIn={signIn} isLoading={authLoading} error={authError} googleLoaded={googleLoaded} onManualInputClick={() => setShowManualInput(true)} />
             {authError?.includes("authorized origins") && <OAuthSetupGuide />}
           </div>
         )}
 
         {(!authLoading && showManualInput && !currentPlaylist) && (
-          <div className="content">
-            <PlaylistForm onSubmit={handlePlaylistSubmit} isLoading={isLoading} />
-            <div className="text-center bg-white py-4">
-              <button onClick={() => setShowManualInput(false)} className="text-sm text-gray-800 hover:text-gray-900 underline">
-                ← Back to Google Sign In
-              </button>
-            </div>
+          <div className="content bg-white max-w-4xl mx-auto">
+            <PlaylistForm onSubmit={handlePlaylistSubmit} isLoading={isLoading} onBackToSignIn={() => setShowManualInput(false)} />
           </div>
         )}
 
@@ -384,7 +379,7 @@ export default function Home() {
             )}
 
             {isLoading && (
-              <div className="max-w-md mx-auto text-center">
+              <div className="max-w-4xl mx-auto text-center bg-white py-6">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
                 <p className="text-gray-800">Loading playlist videos...</p>
               </div>
@@ -400,13 +395,9 @@ export default function Home() {
                   onPlaylistSelect={handleYouTubePlaylistSelect}
                   onRefreshPlaylists={fetchPlaylists}
                   onSignOut={handleSignOut}
+                  onManualInputClick={() => setShowManualInput(true)}
                   isShuffled={!!shuffledPlaylists.length}
                 />
-                <div className="text-center">
-                  <button onClick={() => setShowManualInput(true)} className="text-sm text-gray-800 hover:text-gray-900 underline">
-                    Or enter a playlist URL manually
-                  </button>
-                </div>
               </>
             )}
           </div>

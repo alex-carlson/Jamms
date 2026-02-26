@@ -16,6 +16,7 @@ interface PlaylistSelectorProps {
     onPlaylistSelect: (playlist: YouTubePlaylist) => void;
     onRefreshPlaylists: () => void;
     onSignOut: () => void;
+    onManualInputClick: () => void;
     isShuffled: boolean;
 }
 
@@ -27,6 +28,7 @@ export default function PlaylistSelector({
     onPlaylistSelect,
     onRefreshPlaylists,
     onSignOut,
+    onManualInputClick,
     isShuffled,
 }: PlaylistSelectorProps) {
     const [selectedPlaylist, setSelectedPlaylist] = useState<YouTubePlaylist | null>(null);
@@ -35,8 +37,8 @@ export default function PlaylistSelector({
         <>
             <div className="max-w-4xl mx-auto mb-0">
                 <div className="text-center py-8 bg-white">
-                    <div className="flex items-center justify-center gap-4 mb-6 m">
-                        <div className="flex items-center gap-3 bg-white rounded-lg px-4 py-2 shadow-md">
+                    <div className="max-w-xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-6 p-2">
+                        <div className="w-full sm:w-auto flex items-center justify-center sm:justify-start gap-3 bg-white rounded-lg px-4 py-2 shadow-md">
                             <img
                                 src={user.picture}
                                 alt={user.name}
@@ -53,7 +55,7 @@ export default function PlaylistSelector({
                         </div>
                         <button
                             onClick={onSignOut}
-                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg transition-colors flex items-center gap-2"
+                            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
                         >
                             <LogOut className="h-4 w-4" />
                             <span>Sign Out</span>
@@ -62,6 +64,11 @@ export default function PlaylistSelector({
                     <p className="text-xl text-gray-800">
                         Select one of your YouTube playlists to create a power hour
                     </p>
+                    <div className="text-center mt-4">
+                        <button onClick={onManualInputClick} className="text-sm text-gray-800 hover:text-gray-900 underline">
+                            Or enter a playlist URL manually
+                        </button>
+                    </div>
                 </div>
             </div>
 
