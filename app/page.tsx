@@ -213,7 +213,7 @@ export default function Home() {
           .from('playlist_plays')
           .update({
             plays: existingPlaylist.plays + 1
-          })
+          } as any)
           .eq('id', existingPlaylist.id);
 
         if (updateError) {
