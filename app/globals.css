@@ -25,6 +25,19 @@ body {
   font-family: var(--font-lexend), system-ui, sans-serif;
 }
 
+/* Custom background color classes */
+.bg-black {
+  background-color: #000 !important;
+}
+
+.bg-gold {
+  background: linear-gradient(135deg, #fde68a 0%, #facc15 100%) !important;
+}
+
+.bg-blue {
+  background-color: #017ec1 !important;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

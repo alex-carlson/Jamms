@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { Clipboard, Rocket } from "lucide-react";
+import { useRef, useState } from "react";
+import { Clipboard, Beer } from "lucide-react";
 
 interface PlaylistFormProps {
-    onSubmit: (url: string) => void;
+    onSubmit: (url: string, shouldShare: boolean) => void;
     isLoading: boolean;
     onBackToSignIn: () => void;
+    shareWithCommunity: boolean;
+    onShareWithCommunityChange: (value: boolean) => void;
 }
 
-export default function PlaylistForm({ onSubmit, isLoading, onBackToSignIn }: PlaylistFormProps) {
+export default function PlaylistForm({
+    onSubmit,
+    isLoading,
+    onBackToSignIn,
+    shareWithCommunity,
+    onShareWithCommunityChange,
+}: PlaylistFormProps) {
     const [playlistUrl, setPlaylistUrl] = useState("");
     const [isValidUrl, setIsValidUrl] = useState(true);
+    const shareCheckboxRef = useRef<HTMLInputElement | null>(null);
 
     const validateYouTubePlaylistUrl = (url: string): boolean => {
         if (!url.trim()) return true; // Allow empty input
@@ -44,7 +53,8 @@ export default function PlaylistForm({ onSubmit, isLoading, onBackToSignIn }: Pl
             return;
         }
 
-        onSubmit(playlistUrl);
+        const shouldShare = shareCheckboxRef.current?.checked ?? shareWithCommunity;
+        onSubmit(playlistUrl, shouldShare);
     };
 
     const handlePaste = async () => {
@@ -121,6 +131,18 @@ export default function PlaylistForm({ onSubmit, isLoading, onBackToSignIn }: Pl
                         )}
                     </div>
 
+                    <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
+                        <input
+                            ref={shareCheckboxRef}
+                            type="checkbox"
+                            checked={shareWithCommunity}
+                            onChange={(event) => onShareWithCommunityChange(event.target.checked)}
+                            className="h-4 w-4"
+                            disabled={isLoading}
+                        />
+                        <span>Share this playlist with the community</span>
+                    </label>
+
                     <button
                         type="submit"
                         disabled={isLoading || !playlistUrl.trim() || !isValidUrl}
@@ -133,7 +155,7 @@ export default function PlaylistForm({ onSubmit, isLoading, onBackToSignIn }: Pl
                             </>
                         ) : (
                             <>
-                                <Rocket className="h-5 w-5" />
+                                <Beer className="h-5 w-5" />
                                 <span>Load Playlist</span>
                             </>
                         )}
@@ -154,7 +176,7 @@ export default function PlaylistForm({ onSubmit, isLoading, onBackToSignIn }: Pl
             </div>
             <div className="text-center bg-white py-4">
                 <button onClick={onBackToSignIn} className="text-sm text-gray-800 hover:text-gray-900 underline">
-                    ← Back to Google Sign In
+                    Back to Google Sign In
                 </button>
             </div>
         </div>

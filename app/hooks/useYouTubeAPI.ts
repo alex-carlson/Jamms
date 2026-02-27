@@ -5,10 +5,12 @@ import { useState } from "react";
 export interface YouTubePlaylist {
     id: string;
     title: string;
+    author: string;
     description: string;
     thumbnail: string;
     itemCount: number;
     publishedAt: string;
+    privacyStatus: string;
 }
 
 export interface PublicPlaylistVideos {
@@ -51,7 +53,7 @@ export const useYouTubeAPI = (
 
         try {
             const response = await fetch(
-                `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=50`,
+                `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails,status&mine=true&maxResults=50`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -72,6 +74,7 @@ export const useYouTubeAPI = (
                 (item: any) => ({
                     id: item.id,
                     title: item.snippet.title,
+                    author: item.snippet.channelTitle || "",
                     description: item.snippet.description || "",
                     thumbnail:
                         item.snippet.thumbnails?.medium?.url ||
@@ -79,6 +82,7 @@ export const useYouTubeAPI = (
                         "",
                     itemCount: item.contentDetails?.itemCount || 0,
                     publishedAt: item.snippet.publishedAt,
+                    privacyStatus: item.status?.privacyStatus || "public",
                 })
             );
 

@@ -17,6 +17,8 @@ CREATE TABLE playlist_plays (
   id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   youtube_url TEXT NOT NULL,
   playlist_id VARCHAR(100) NOT NULL,
+  playlist_title TEXT,
+  playlist_author TEXT,
   plays INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -77,3 +79,7 @@ FOR UPDATE USING (true);
 
 -- CREATE POLICY "Allow authenticated update" ON popular_jamms
 -- FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Migration for existing databases
+ALTER TABLE playlist_plays ADD COLUMN IF NOT EXISTS playlist_title TEXT;
+ALTER TABLE playlist_plays ADD COLUMN IF NOT EXISTS playlist_author TEXT;

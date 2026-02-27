@@ -42,7 +42,8 @@ const nextConfig: NextConfig = {
                 https://www.googleapis.com
                 https://accounts.google.com
                 https://www.youtube.com
-                https://www.youtube-nocookie.com;
+                https://www.youtube-nocookie.com
+                https://*.supabase.co;
               frame-src 'self'
                 https://accounts.google.com
                 https://www.youtube.com

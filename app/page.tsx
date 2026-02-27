@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CornerDownLeft } from "lucide-react";
 import Header from "./components/Header";
 import Navigation from "./components/Navigation";
 import PlaylistForm from "./components/PlaylistForm";
@@ -29,6 +31,8 @@ export interface PlaylistData {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [currentPlaylist, setCurrentPlaylist] = useState<PlaylistData | null>(null);
   const [playbackStartMode, setPlaybackStartMode] = useState<"thirty-seconds" | "one-third" | "full">("one-third");
@@ -39,15 +43,37 @@ export default function Home() {
   const [shuffledIndices, setShuffledIndices] = useState<number[]>([]);
   const [totalVideos, setTotalVideos] = useState<number>(60);
   const [shuffledPlaylists, setShuffledPlaylists] = useState<YouTubePlaylist[]>([]);
+  const [shareWithCommunity, setShareWithCommunity] = useState(true);
+  const youtubeApiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "";
 
 
   const youtubePlayerRef = useRef<any>(null);
+  const autoLoadedPlaylistUrlRef = useRef<string | null>(null);
+  const handlePlaylistSubmitRef = useRef<(url: string, shouldShare?: boolean) => void>(() => { });
   const durationSyncKeyRef = useRef<string | null>(null);
   const timerIncrementRef = useRef(false);
   const previousPlaybackModeRef = useRef(playbackStartMode);
 
   const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
   const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists, getPublicPlaylistVideoIds } = useYouTubeAPI(getAccessToken);
+  const isManualProcessing = showManualInput && isLoading && !currentPlaylist;
+
+  const sanitizePlaylistParam = (rawValue: string | null): string | null => {
+    if (!rawValue) return null;
+
+    const trimmed = rawValue.trim();
+    if (!trimmed || trimmed.length > 500) return null;
+
+    const allowedPatterns = [
+      /^https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+/,
+      /^https?:\/\/(?:www\.)?youtube\.com\/watch\?.*[&?]list=[a-zA-Z0-9_-]+/,
+      /^https?:\/\/youtu\.be\/.*[&?]list=[a-zA-Z0-9_-]+/
+    ];
+
+    if (!allowedPatterns.some((pattern) => pattern.test(trimmed))) return null;
+
+    return trimmed;
+  };
 
   // Power hour timer comes first
   const {
@@ -153,8 +179,17 @@ export default function Home() {
     return { videoIds, videoTitles, videoAuthors };
   };
 
-  const trackPlaylistPlay = async (youtubeUrl: string) => {
+  const trackPlaylistPlay = async (
+    youtubeUrl: string,
+    shouldShare: boolean,
+    isPrivate: boolean = false,
+    verifyPublicBeforeInsert: boolean = false,
+    playlistTitle?: string,
+    playlistAuthor?: string
+  ) => {
     try {
+      if (isPrivate) return;
+
       const playlistId = extractPlaylistId(youtubeUrl);
       if (!playlistId) return;
 
@@ -176,7 +211,7 @@ export default function Home() {
         // Increment plays if playlist exists
         const { error: updateError } = await supabase
           .from('playlist_plays')
-          .update({ 
+          .update({
             plays: existingPlaylist.plays + 1
           })
           .eq('id', existingPlaylist.id);
@@ -184,26 +219,47 @@ export default function Home() {
         if (updateError) {
           console.error('Error updating playlist plays:', updateError);
         }
-      } else {
+      } else if (shouldShare) {
+        if (verifyPublicBeforeInsert) {
+          const statusParams = new URLSearchParams({
+            part: 'status',
+            id: playlistId,
+            key: youtubeApiKey,
+          });
+
+          const statusResponse = await fetch(`https://www.googleapis.com/youtube/v3/playlists?${statusParams.toString()}`);
+          const statusPayload = statusResponse.ok ? await statusResponse.json() : null;
+          const privacyStatus = statusPayload?.items?.[0]?.status?.privacyStatus;
+
+          if (privacyStatus === 'private') {
+            return;
+          }
+        }
+
         // Insert new playlist with 1 play
         const { error: insertError } = await supabase
           .from('playlist_plays')
           .insert({
             youtube_url: youtubeUrl,
             playlist_id: playlistId,
+            playlist_title: playlistTitle || null,
+            playlist_author: playlistAuthor || null,
             plays: 1
           });
 
         if (insertError) {
           console.error('Error inserting new playlist:', insertError);
         }
+      } else {
+        // Not shared and doesn't exist: skip database write
+        return;
       }
     } catch (error) {
       console.error('Error tracking playlist play:', error);
     }
   };
 
-  async function handlePlaylistSubmit(url: string) {
+  async function handlePlaylistSubmit(url: string, shouldShare: boolean = shareWithCommunity) {
     setIsLoading(true);
     const playlistId = extractPlaylistId(url);
     if (!playlistId) return setIsLoading(false);
@@ -233,13 +289,17 @@ export default function Home() {
       setEmbedError(false);
 
       // Track playlist play in Supabase
-      trackPlaylistPlay(url);
+      trackPlaylistPlay(url, shouldShare, false, false, undefined, videoAuthors[0] || undefined);
     } catch (err) {
       setEmbedError(true);
     } finally {
       setIsLoading(false);
     }
   }
+
+  useEffect(() => {
+    handlePlaylistSubmitRef.current = handlePlaylistSubmit;
+  });
 
   const handleYouTubePlaylistSelect = async (playlist: YouTubePlaylist) => {
     setIsLoading(true);
@@ -267,8 +327,15 @@ export default function Home() {
       setVideoCount(0);
       setEmbedError(false);
 
-      // Track playlist play in Supabase
-      trackPlaylistPlay(playlistUrl);
+      // Track playlist play in Supabase only for explicitly public playlists
+      trackPlaylistPlay(
+        playlistUrl,
+        shareWithCommunity,
+        playlist.privacyStatus === 'private',
+        true,
+        playlist.title,
+        playlist.author
+      );
     } catch {
       setEmbedError(true);
     } finally {
@@ -287,6 +354,18 @@ export default function Home() {
     setShuffledIndices([]);
     setTotalVideos(60);
   };
+
+  useEffect(() => {
+    const playlistFromQuery = sanitizePlaylistParam(searchParams.get("playlist"));
+    if (!playlistFromQuery) return;
+    if (currentPlaylist) return;
+    if (isLoading) return;
+    if (autoLoadedPlaylistUrlRef.current === playlistFromQuery) return;
+
+    autoLoadedPlaylistUrlRef.current = playlistFromQuery;
+    setShowManualInput(true);
+    handlePlaylistSubmitRef.current(playlistFromQuery, shareWithCommunity);
+  }, [searchParams, currentPlaylist, isLoading, shareWithCommunity]);
 
   const onNextPressed = () => {
     // Always reset and start timer to full duration for next video
@@ -379,15 +458,32 @@ export default function Home() {
     durationSyncKeyRef.current = null;
   }, [currentPlaylist?.id, currentVideoIndex, playbackStartMode]);
 
+  // Set background color: blue if no playlist, black if playlist
+  const bgClass = currentPlaylist ? "bg-black" : "bg-blue";
   return (
-    <div className={`min-h-screen relative p-2`}>
+    <div className={`min-h-screen relative p-2 ${bgClass}`}>
+      {currentPlaylist && (
+        <button
+          onClick={() => {
+            resetPlaylist();
+            setShowManualInput(false);
+            setEmbedError(false);
+            router.replace("/");
+          }}
+          aria-label="Go home"
+          className="fixed top-4 left-4 z-50 text-white p-2 transition-opacity opacity-50 hover:opacity-100"
+        >
+          <CornerDownLeft className="h-8 w-8" strokeWidth={3} />
+        </button>
+      )}
+
       {/* Header - hidden if playing a video */}
       {!currentPlaylist && (
         <Header title="JAMMS" />
       )}
 
       {/* Navigation - visible when not playing a video */}
-      {!currentPlaylist && (
+      {!currentPlaylist && !isManualProcessing && (
         <Navigation currentPage="power-hour" />
       )}
 
@@ -401,24 +497,38 @@ export default function Home() {
           </div>
         )}
         {/* Loading during auth */}
-        {authLoading && (
+        {authLoading && !isManualProcessing && (
           <div className="max-w-md mx-auto text-center bg-white">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
             <p className="text-gray-800">Initializing...</p>
           </div>
         )}
 
+        {/* Loading during manual playlist processing */}
+        {isManualProcessing && (
+          <div className="max-w-4xl mx-auto text-center bg-white py-10">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+            <p className="text-gray-800">Loading playlist videos...</p>
+          </div>
+        )}
+
         {/* Sign-in / Manual Input */}
-        {!authLoading && !showManualInput && !isAuthenticated && (
+        {!authLoading && !showManualInput && !isAuthenticated && !isManualProcessing && (
           <div className="content bg-white max-w-4xl mx-auto">
             <LoginComponent onSignIn={signIn} isLoading={authLoading} error={authError} googleLoaded={googleLoaded} onManualInputClick={() => setShowManualInput(true)} />
             {authError?.includes("authorized origins") && <OAuthSetupGuide />}
           </div>
         )}
 
-        {(!authLoading && showManualInput && !currentPlaylist) && (
+        {(!authLoading && showManualInput && !currentPlaylist && !isLoading) && (
           <div className="content bg-white max-w-4xl mx-auto">
-            <PlaylistForm onSubmit={handlePlaylistSubmit} isLoading={isLoading} onBackToSignIn={() => setShowManualInput(false)} />
+            <PlaylistForm
+              onSubmit={(url, shouldShare) => handlePlaylistSubmit(url, shouldShare)}
+              isLoading={isLoading}
+              onBackToSignIn={() => setShowManualInput(false)}
+              shareWithCommunity={shareWithCommunity}
+              onShareWithCommunityChange={setShareWithCommunity}
+            />
           </div>
         )}
 
@@ -462,6 +572,8 @@ export default function Home() {
                   onSignOut={handleSignOut}
                   onManualInputClick={() => setShowManualInput(true)}
                   isShuffled={!!shuffledPlaylists.length}
+                  shareWithCommunity={shareWithCommunity}
+                  onShareWithCommunityChange={setShareWithCommunity}
                 />
               </>
             )}

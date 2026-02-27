@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, RefreshCw, User, LogOut } from "lucide-react";
+import { Play, RefreshCw, LogOut, Globe, Link2, Lock } from "lucide-react";
 import { YouTubePlaylist } from "../hooks/useYouTubeAPI";
 
 interface PlaylistSelectorProps {
@@ -18,6 +18,8 @@ interface PlaylistSelectorProps {
     onSignOut: () => void;
     onManualInputClick: () => void;
     isShuffled: boolean;
+    shareWithCommunity: boolean;
+    onShareWithCommunityChange: (value: boolean) => void;
 }
 
 export default function PlaylistSelector({
@@ -30,8 +32,30 @@ export default function PlaylistSelector({
     onSignOut,
     onManualInputClick,
     isShuffled,
+    shareWithCommunity,
+    onShareWithCommunityChange,
 }: PlaylistSelectorProps) {
     const [selectedPlaylist, setSelectedPlaylist] = useState<YouTubePlaylist | null>(null);
+
+    const getPrivacyDisplay = (privacyStatus?: string) => {
+        switch ((privacyStatus || "").toLowerCase()) {
+            case "private":
+                return {
+                    label: "Private",
+                    icon: <Lock className="h-3.5 w-3.5" />,
+                };
+            case "unlisted":
+                return {
+                    label: "Unlisted",
+                    icon: <Link2 className="h-3.5 w-3.5" />,
+                };
+            default:
+                return {
+                    label: "Public",
+                    icon: <Globe className="h-3.5 w-3.5" />,
+                };
+        }
+    };
 
     return (
         <>
@@ -61,6 +85,15 @@ export default function PlaylistSelector({
                             <span>Sign Out</span>
                         </button>
                     </div>
+                    <label className="mt-3 flex items-center justify-center gap-2 text-sm text-gray-800 cursor-pointer mb-6">
+                        <input
+                            type="checkbox"
+                            checked={shareWithCommunity}
+                            onChange={(event) => onShareWithCommunityChange(event.target.checked)}
+                            className="h-4 w-4"
+                        />
+                        <span>Share with the community</span>
+                    </label>
                     <p className="text-xl text-gray-800">
                         Select one of your YouTube playlists to create a power hour
                     </p>
@@ -134,6 +167,15 @@ export default function PlaylistSelector({
 
                                 {/* Playlist Info */}
                                 <div className="flex-1 min-w-0">
+                                    {(() => {
+                                        const privacy = getPrivacyDisplay(playlist.privacyStatus);
+                                        return (
+                                            <div className="inline-flex items-center gap-1 text-xs text-gray-600 mb-1">
+                                                {privacy.icon}
+                                                <span>{privacy.label}</span>
+                                            </div>
+                                        );
+                                    })()}
                                     <h3 className="font-semibold text-gray-800 line-clamp-1">
                                         {playlist.title}
                                     </h3>
