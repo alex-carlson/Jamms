@@ -177,8 +177,7 @@ export default function Home() {
         const { error: updateError } = await supabase
           .from('playlist_plays')
           .update({ 
-            plays: existingPlaylist.plays + 1,
-            updated_at: new Date().toISOString()
+            plays: existingPlaylist.plays + 1
           })
           .eq('id', existingPlaylist.id);
 

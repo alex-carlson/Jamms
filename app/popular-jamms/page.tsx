@@ -30,41 +30,83 @@ export default function PopularJamms() {
 
       // Check if Supabase client was created successfully
       if (!supabase) {
+        console.error('❌ Supabase client is null');
         throw new Error('Supabase client not initialized. Check environment variables in .env.local');
       }
 
-      // Check if environment variables are set
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        throw new Error('Supabase environment variables not configured. Please check .env.local file.');
-      }
+      console.log('🚀 Testing with popular_jamms table first...');
       
-      console.log('🚀 Making Supabase query...');
+      // First test with popular_jamms table (which we know works)
+      try {
+        const { data: testData, error: testError } = await supabase
+          .from('popular_jamms')
+          .select('*')
+          .limit(5);
+        
+        console.log('✅ popular_jamms test result:', { testData, testError });
+        
+        if (testError) {
+          console.error('❌ popular_jamms test failed:', testError);
+        } else {
+          console.log('✅ popular_jamms works! Found', testData?.length, 'items');
+        }
+      } catch (popularError) {
+        console.error('❌ popular_jamms test threw error:', popularError);
+      }
+
+      console.log('🚀 Now trying playlist_plays table...');
+      
+      // Now try playlist_plays
       const { data, error } = await supabase
         .from('playlist_plays')
         .select('*')
         .order('plays', { ascending: false })
-        .limit(20); // Show top 20 playlists
+        .limit(20);
 
-      console.log('📊 Supabase response:', { data, error });
+      console.log('📊 playlist_plays result:', { 
+        data, 
+        error, 
+        dataLength: data?.length,
+        errorCode: error?.code,
+        errorMessage: error?.message 
+      });
 
       if (error) {
-        console.error('❌ Supabase error:', error);
-        throw error;
+        console.error('❌ Supabase error details:', JSON.stringify(error, null, 2));
+        
+        // Check for specific error types
+        if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+          throw new Error('Table "playlist_plays" does not exist. Please run the SQL setup script in your Supabase dashboard.');
+        }
+        
+        if (error.message?.includes('permission denied') || error.message?.includes('insufficient_privilege')) {
+          throw new Error('Permission denied. RLS may be blocking access. Try temporarily disabling RLS on playlist_plays table.');
+        }
+        
+        throw new Error(`Database query failed: ${error.message || JSON.stringify(error)}`);
       }
 
       console.log('✅ Successfully loaded playlists:', data?.length || 0, 'items');
       console.log('📋 Playlist data:', data);
       
       setPlaylists(data || []);
+
+      // Show success message only if we got data
+      if (data && data.length > 0) {
+        showSuccess('Popular playlists loaded!', `Found ${data.length} playlists`);
+      }
+      
     } catch (err) {
       console.error('💥 Error in loadPopularPlaylists:', err);
       
       let errorMessage = 'Unknown error occurred';
       if (err instanceof Error) {
         errorMessage = err.message;
-        if (err.message.includes('NetworkError') || err.message.includes('fetch')) {
-          errorMessage = 'Network error: Check your Supabase configuration and internet connection';
-        }
+        console.log('📝 Error message:', err.message);
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else {
+        errorMessage = `Unexpected error: ${JSON.stringify(err)}`;
       }
       
       showError('Failed to load popular playlists', errorMessage);
@@ -104,7 +146,7 @@ export default function PopularJamms() {
       {/* Loading State */}
       {loading && (
         <div className="max-w-4xl mx-auto px-4">
-          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+          <div className="bg-white p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading popular playlists...</p>
           </div>
@@ -115,7 +157,7 @@ export default function PopularJamms() {
       {!loading && (
         <div className="max-w-4xl mx-auto px-4 pb-8">
           {playlists.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <div className="bg-white p-8 text-center">
               <p className="text-gray-600">No popular playlists found. Check back soon!</p>
             </div>
           ) : (

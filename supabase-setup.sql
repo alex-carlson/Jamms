@@ -22,6 +22,19 @@ CREATE TABLE playlist_plays (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create function to update updated_at column
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger to auto-update updated_at
+CREATE TRIGGER update_playlist_plays_updated_at BEFORE UPDATE
+ON playlist_plays FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Create indices for popular_jamms
 CREATE INDEX idx_popular_jamms_plays ON popular_jamms(plays DESC);
 CREATE UNIQUE INDEX idx_popular_jamms_youtube_id ON popular_jamms(youtube_id);
