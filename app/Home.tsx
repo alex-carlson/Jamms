@@ -7,15 +7,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CornerDownLeft } from "lucide-react";
 import Header from "./components/Header";
 import Navigation from "./components/Navigation";
-import PlaylistForm from "./components/PlaylistForm";
 import VideoPlayer from "./components/VideoPlayer";
 import PlayerControls from "./components/PlayerControls";
 import PlayerHeader from "./components/PlayerHeader";
-import LoginComponent from "./components/LoginComponent";
 import AuthArea from "./components/AuthArea";
 import PlaylistSelector from "./components/PlaylistSelector";
 import Footer from "./components/Footer";
-import OAuthSetupGuide from "./components/OAuthSetupGuide";
 import { useGoogleAuth } from "./hooks/useGoogleAuth";
 import { useYouTubeAPI, YouTubePlaylist } from "./hooks/useYouTubeAPI";
 import { extractPlaylistId, createEmbedUrl, shuffleArray } from "./hooks/useYouTubeUtils";
@@ -510,21 +507,22 @@ export default function Home() {
             </div>
           )}
 
-          {/* Auth and manual input area */}
-          <AuthArea
-            authLoading={authLoading}
-            showManualInput={showManualInput}
-            isAuthenticated={isAuthenticated}
-            isManualProcessing={isManualProcessing}
-            signIn={signIn}
-            authError={authError}
-            googleLoaded={googleLoaded}
-            setShowManualInput={setShowManualInput}
-            handlePlaylistSubmit={handlePlaylistSubmit}
-            isLoading={isLoading}
-            shareWithCommunity={shareWithCommunity}
-            onShareWithCommunityChange={setShareWithCommunity}
-          />
+          {!currentPlaylist && (
+            <AuthArea
+              authLoading={authLoading}
+              showManualInput={showManualInput}
+              isAuthenticated={isAuthenticated}
+              isManualProcessing={isManualProcessing}
+              signIn={signIn}
+              authError={authError}
+              googleLoaded={googleLoaded}
+              setShowManualInput={setShowManualInput}
+              handlePlaylistSubmit={handlePlaylistSubmit}
+              isLoading={isLoading}
+              shareWithCommunity={shareWithCommunity}
+              onShareWithCommunityChange={setShareWithCommunity}
+            />
+          )}
 
           {/* Playlist Selector */}
           {isAuthenticated && !currentPlaylist && !showManualInput && user && (
