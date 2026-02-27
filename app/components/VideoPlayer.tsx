@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useImperativeHandle, useState } from "react";
-import { PlaylistData } from "../page";
+import { PlaylistData } from "../Home";
 
 declare global {
     interface Window {
