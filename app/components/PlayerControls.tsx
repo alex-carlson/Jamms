@@ -37,14 +37,14 @@ export default function PlayerControls({
     return (
         <div className="fixed bottom-0 left-0 w-full px-2 sm:px-6 py-4 text-white flex justify-center">
             <div className="max-w-4xl w-full flex flex-col gap-3">
-                <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between sm:gap-4">
-                    <div className="text-6xl font-bold text-white w-[6ch] text-right tabular-nums" style={displayTextStyle}>
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="text-6xl font-bold text-white w-[6ch] text-left tabular-nums sm:flex-shrink-0" style={displayTextStyle}>
                         {formattedTime}
                     </div>
-                    <div className="text-4xl font-light text-white" style={displayTextStyle}>
+                    <div className="text-4xl font-light text-white w-full text-center sm:flex-1" style={displayTextStyle}>
                         {currentVideoIndex + 1}/{totalVideos + 1}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 sm:flex-shrink-0">
                         <button
                             onClick={() => setControlsOpen((prev) => !prev)}
                             className={`bg-black/60 border border-white/30 text-white rounded-md p-2 transition-opacity duration-300 flex-shrink-0 ${controlsOpen ? "opacity-100" : "opacity-50"}`}

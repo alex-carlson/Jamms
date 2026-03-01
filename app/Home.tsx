@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CornerDownLeft } from "lucide-react";
+import { CornerDownLeft, List } from "lucide-react";
 import Header from "./components/Header";
 import Navigation from "./components/Navigation";
 import VideoPlayer from "./components/VideoPlayer";
@@ -45,6 +45,7 @@ export default function Home() {
   const [totalVideos, setTotalVideos] = useState<number>(60);
   const [shuffledPlaylists, setShuffledPlaylists] = useState<YouTubePlaylist[]>([]);
   const [shareWithCommunity, setShareWithCommunity] = useState(true);
+  const [showPlaylistList, setShowPlaylistList] = useState(false);
   const youtubeApiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "";
 
 
@@ -233,13 +234,13 @@ export default function Home() {
         // Insert new playlist with 1 play
         const { error: insertError } = await supabase
           .from('playlist_plays')
-         .insert({
-          youtube_url: youtubeUrl,
-          playlist_id: playlistId,
-          playlist_title: playlistTitle || null,
-          playlist_author: playlistAuthor || null,
-          plays: 1,
-        });
+          .insert({
+            youtube_url: youtubeUrl,
+            playlist_id: playlistId,
+            playlist_title: playlistTitle || null,
+            playlist_author: playlistAuthor || null,
+            plays: 1,
+          });
 
         if (insertError) {
           console.error('Error inserting new playlist:', insertError);
@@ -347,6 +348,7 @@ export default function Home() {
     setEmbedError(false);
     setShuffledIndices([]);
     setTotalVideos(60);
+    setShowPlaylistList(false);
   };
 
   useEffect(() => {
@@ -458,18 +460,46 @@ export default function Home() {
     <Suspense fallback={null}>
       <div className={`min-h-screen relative p-2 ${bgClass}`}>
         {currentPlaylist && (
-          <button
-            onClick={() => {
-              resetPlaylist();
-              setShowManualInput(false);
-              setEmbedError(false);
-              router.replace("/");
-            }}
-            aria-label="Go home"
-            className="fixed top-4 left-4 z-50 text-white p-2 transition-opacity opacity-50 hover:opacity-100"
-          >
-            <CornerDownLeft className="h-8 w-8" strokeWidth={3} />
-          </button>
+          <>
+            <button
+              onClick={() => {
+                resetPlaylist();
+                setShowManualInput(false);
+                setEmbedError(false);
+                router.replace("/");
+              }}
+              aria-label="Go home"
+              className="fixed top-4 left-4 z-50 text-white p-2 transition-opacity opacity-50 hover:opacity-100"
+            >
+              <CornerDownLeft className="h-8 w-8" strokeWidth={3} />
+            </button>
+
+            <button
+              onClick={() => setShowPlaylistList((prev) => !prev)}
+              aria-label="Toggle shuffled playlist video names"
+              className="fixed top-4 right-4 z-50 text-white p-2 transition-opacity opacity-70 hover:opacity-100"
+            >
+              <List className="h-8 w-8" strokeWidth={3} />
+            </button>
+
+            {showPlaylistList && (
+              <div className="fixed top-16 right-4 z-50 w-80 max-h-[65vh] overflow-y-auto rounded-lg bg-black/80 border border-white/20 p-2">
+                <ul className="space-y-1">
+                  {shuffledIndices.map((shuffledIndex, listIndex) => (
+                    <li
+                      key={`${shuffledIndex}-${listIndex}`}
+                      className={`px-3 py-2 text-sm text-white rounded flex items-start gap-2 ${listIndex === currentVideoIndex ? "bg-white/30 ring-1 ring-white/60 font-semibold" : "bg-transparent"}`}
+                    >
+                      <span className="min-w-6 text-white/80">{listIndex + 1}.</span>
+                      <span>
+                        {currentPlaylist.videoTitles[shuffledIndex] || `Video ${listIndex + 1}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
         )}
 
         {/* Header - hidden if playing a video */}
