@@ -116,7 +116,7 @@ export default function PopularJamms() {
     }
   };
 
-  const extractPlaylistId = (playlist: PlaylistPlay): string | null => {
+  const resolvePlaylistId = (playlist: PlaylistPlay): string | null => {
     if (playlist.playlist_id?.trim()) {
       return playlist.playlist_id.trim();
     }
@@ -133,7 +133,7 @@ export default function PopularJamms() {
       }
 
       const playlistIds = Array.from(
-        new Set(items.map(extractPlaylistId).filter((id): id is string => Boolean(id)))
+        new Set(items.map(resolvePlaylistId).filter((id): id is string => Boolean(id)))
       );
 
       if (playlistIds.length === 0) {
@@ -176,20 +176,15 @@ export default function PopularJamms() {
     }
   };
 
-  const handlePlayPlaylist = (youtubeUrl: string) => {
-    const normalizedUrl = youtubeUrl.trim();
-    const allowedPatterns = [
-      /^https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+/,
-      /^https?:\/\/(?:www\.)?youtube\.com\/watch\?.*[&?]list=[a-zA-Z0-9_-]+/,
-      /^https?:\/\/youtu\.be\/.*[&?]list=[a-zA-Z0-9_-]+/
-    ];
+  const handlePlayPlaylist = (playlist: PlaylistPlay) => {
+    const playlistId = resolvePlaylistId(playlist);
 
-    if (!allowedPatterns.some((pattern) => pattern.test(normalizedUrl))) {
+    if (!playlistId) {
       showError('Invalid playlist URL', 'Could not open this playlist because the URL format is not supported.');
       return;
     }
 
-    const params = new URLSearchParams({ playlist: normalizedUrl });
+    const params = new URLSearchParams({ playlist: playlistId });
     router.push(`/?${params.toString()}`);
   };
 
@@ -266,7 +261,7 @@ export default function PopularJamms() {
               <div className="grid gap-1">
                 {playlists.map((playlist, index) => (
                   (() => {
-                    const playlistId = extractPlaylistId(playlist);
+                    const playlistId = resolvePlaylistId(playlist);
                     const meta = playlistId ? playlistMeta[playlistId] : undefined;
                     const isOwner = Boolean(playlistId && isAuthenticated && ownedPlaylistIds.has(playlistId));
                     const isDeleting = deletingPlaylistId === playlist.id;
@@ -310,7 +305,7 @@ export default function PopularJamms() {
                         </div>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handlePlayPlaylist(playlist.youtube_url)}
+                            onClick={() => handlePlayPlaylist(playlist)}
                             className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
                           >
                             Play

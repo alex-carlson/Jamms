@@ -34,6 +34,13 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
     const volumeFadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const getOneThirdModeStart = useCallback((duration: number) => {
+        if (duration > 8 * 60) {
+            const maxStart = Math.max(0, Math.floor(duration - 60));
+            const t = Math.floor(Math.random() * (maxStart + 1));
+            if (maxStart === 0) return 0;
+            return t;
+        }
+
         const oneThirdStart = Math.floor(duration / 3);
         const remainingAfterOneThird = duration - oneThirdStart;
 

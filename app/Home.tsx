@@ -50,7 +50,7 @@ export default function Home() {
 
 
   const youtubePlayerRef = useRef<any>(null);
-  const autoLoadedPlaylistUrlRef = useRef<string | null>(null);
+  const autoLoadedPlaylistIdRef = useRef<string | null>(null);
   const handlePlaylistSubmitRef = useRef<(url: string, shouldShare?: boolean) => void>(() => { });
   const durationSyncKeyRef = useRef<string | null>(null);
   const timerIncrementRef = useRef(false);
@@ -66,6 +66,11 @@ export default function Home() {
     const trimmed = rawValue.trim();
     if (!trimmed || trimmed.length > 500) return null;
 
+    if (/^[a-zA-Z0-9_-]{10,100}$/.test(trimmed)) return trimmed;
+
+    const extractedId = extractPlaylistId(trimmed);
+    if (extractedId) return extractedId;
+
     const allowedPatterns = [
       /^https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+/,
       /^https?:\/\/(?:www\.)?youtube\.com\/watch\?.*[&?]list=[a-zA-Z0-9_-]+/,
@@ -74,7 +79,7 @@ export default function Home() {
 
     if (!allowedPatterns.some((pattern) => pattern.test(trimmed))) return null;
 
-    return trimmed;
+    return extractPlaylistId(trimmed);
   };
 
   // Power hour timer comes first
@@ -352,15 +357,15 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const playlistFromQuery = sanitizePlaylistParam(searchParams.get("playlist"));
-    if (!playlistFromQuery) return;
+    const playlistIdFromQuery = sanitizePlaylistParam(searchParams.get("playlist"));
+    if (!playlistIdFromQuery) return;
     if (currentPlaylist) return;
     if (isLoading) return;
-    if (autoLoadedPlaylistUrlRef.current === playlistFromQuery) return;
+    if (autoLoadedPlaylistIdRef.current === playlistIdFromQuery) return;
 
-    autoLoadedPlaylistUrlRef.current = playlistFromQuery;
+    autoLoadedPlaylistIdRef.current = playlistIdFromQuery;
     setShowManualInput(true);
-    handlePlaylistSubmitRef.current(playlistFromQuery, shareWithCommunity);
+    handlePlaylistSubmitRef.current(`https://www.youtube.com/playlist?list=${playlistIdFromQuery}`, shareWithCommunity);
   }, [searchParams, currentPlaylist, isLoading, shareWithCommunity]);
 
   const onNextPressed = () => {
@@ -488,7 +493,8 @@ export default function Home() {
                   {shuffledIndices.map((shuffledIndex, listIndex) => (
                     <li
                       key={`${shuffledIndex}-${listIndex}`}
-                      className={`px-3 py-2 text-sm text-white rounded flex items-start gap-2 ${listIndex === currentVideoIndex ? "bg-white/30 ring-1 ring-white/60 font-semibold" : "bg-transparent"}`}
+                      onClick={() => setCurrentVideoIndex(listIndex)}
+                      className={`px-3 py-2 text-sm text-white rounded flex items-start gap-2 cursor-pointer ${listIndex === currentVideoIndex ? "bg-white/30 ring-1 ring-white/60 font-semibold" : "bg-transparent"}`}
                     >
                       <span className="min-w-6 text-white/80">{listIndex + 1}.</span>
                       <span>
