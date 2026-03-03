@@ -20,10 +20,8 @@ export interface PublicPlaylistVideos {
 }
 
 interface UseYouTubeAPIReturn {
-    playlists: YouTubePlaylist[];
     isLoading: boolean;
     error: string | null;
-    fetchPlaylists: () => Promise<void>;
     getPublicPlaylistVideoIds: (
         playlistUrl: string
     ) => Promise<PublicPlaylistVideos>;
@@ -31,73 +29,9 @@ interface UseYouTubeAPIReturn {
 
 const YT_API_KEY = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY!;
 
-export const useYouTubeAPI = (
-    getAccessToken: () => string | null
-): UseYouTubeAPIReturn => {
-    const [playlists, setPlaylists] = useState<YouTubePlaylist[]>([]);
+export const useYouTubeAPI = (): UseYouTubeAPIReturn => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    // -----------------------------
-    // Fetch authenticated user's playlists (OAuth)
-    // -----------------------------
-    const fetchPlaylists = async () => {
-        const token = getAccessToken();
-        if (!token) {
-            setError("No access token available");
-            return;
-        }
-
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const response = await fetch(
-                `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails,status&mine=true&maxResults=50`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(
-                    `YouTube API error: ${response.status} ${response.statusText}`
-                );
-            }
-
-            const data = await response.json();
-
-            const formattedPlaylists: YouTubePlaylist[] = data.items.map(
-                (item: any) => ({
-                    id: item.id,
-                    title: item.snippet.title,
-                    author: item.snippet.channelTitle || "",
-                    description: item.snippet.description || "",
-                    thumbnail:
-                        item.snippet.thumbnails?.medium?.url ||
-                        item.snippet.thumbnails?.default?.url ||
-                        "",
-                    itemCount: item.contentDetails?.itemCount || 0,
-                    publishedAt: item.snippet.publishedAt,
-                    privacyStatus: item.status?.privacyStatus || "public",
-                })
-            );
-
-            setPlaylists(formattedPlaylists);
-        } catch (err) {
-            console.error("Error fetching playlists:", err);
-            setError(
-                err instanceof Error
-                    ? err.message
-                    : "Failed to fetch playlists"
-            );
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     // -----------------------------
     // Fetch videos from ANY public playlist (API key only)
@@ -166,10 +100,8 @@ export const useYouTubeAPI = (
     };
 
     return {
-        playlists,
         isLoading,
         error,
-        fetchPlaylists,
         getPublicPlaylistVideoIds,
     };
 };

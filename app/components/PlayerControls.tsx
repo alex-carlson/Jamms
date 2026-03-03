@@ -47,10 +47,10 @@ export default function PlayerControls({
                     <div className="flex items-center gap-2 sm:flex-shrink-0">
                         <button
                             onClick={() => setControlsOpen((prev) => !prev)}
-                            className={`bg-black/60 border border-white/30 text-white rounded-md p-2 transition-opacity duration-300 flex-shrink-0 ${controlsOpen ? "opacity-100" : "opacity-50"}`}
+                            className={`bg-transparent border border-white/50 hover:border-white text-white rounded-md w-10 h-10 transition-all duration-300 flex-shrink-0 flex items-center justify-center ${controlsOpen ? "opacity-100" : "opacity-50"}`}
                             aria-label={controlsOpen ? "Collapse controls" : "Expand controls"}
                         >
-                            <span className="inline-flex h-4 w-4 items-center justify-center text-sm font-bold leading-none">
+                            <span className="text-sm font-bold leading-none">
                                 {controlsOpen ? "-" : "..."}
                             </span>
                         </button>
@@ -61,7 +61,7 @@ export default function PlayerControls({
                                 <select
                                     value={playbackStartMode}
                                     onChange={(e) => onPlaybackStartModeChange(e.target.value as "thirty-seconds" | "one-third" | "full")}
-                                    className="bg-black/60 border border-white/30 text-white rounded-md px-2 py-1 text-xs sm:text-sm"
+                                    className="bg-transparent border border-white/50 hover:border-white text-white rounded-md px-2 py-1 text-xs sm:text-sm"
                                 >
                                     <option value="thirty-seconds">30s</option>
                                     <option value="one-third">60s</option>
@@ -71,7 +71,7 @@ export default function PlayerControls({
 
                             <button
                                 onClick={onTogglePlayPause}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-3 sm:py-3 sm:px-6 rounded-lg transition-colors flex items-center space-x-1 sm:space-x-2 whitespace-nowrap text-xs sm:text-sm"
+                                className="bg-transparent hover:bg-emerald-600 border border-emerald-600 hover:border-emerald-500 text-emerald-400 hover:text-white font-bold py-2 px-3 sm:py-3 sm:px-6 rounded-lg transition-all flex items-center space-x-1 sm:space-x-2 whitespace-nowrap text-xs sm:text-sm"
                             >
                                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                                 <span>{isPlaying ? "Pause" : "Play"}</span>
@@ -79,7 +79,7 @@ export default function PlayerControls({
 
                             <button
                                 onClick={onNextVideo}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 sm:py-3 sm:px-6 rounded-lg transition-colors flex items-center space-x-1 sm:space-x-2 whitespace-nowrap text-xs sm:text-sm"
+                                className="bg-transparent hover:bg-blue-600 border border-blue-600 hover:border-blue-500 text-blue-400 hover:text-white font-bold py-2 px-3 sm:py-3 sm:px-6 rounded-lg transition-all flex items-center space-x-1 sm:space-x-2 whitespace-nowrap text-xs sm:text-sm"
                             >
                                 <SkipForward className="h-4 w-4" />
                                 <span>Next</span>

@@ -7,7 +7,6 @@ import Header from "../components/Header";
 import Navigation from "../components/Navigation";
 import Toast, { useToasts } from "../components/Toast";
 import { supabase, PlaylistPlay } from "../../lib/supabase";
-import { useGoogleAuth } from "../hooks/useGoogleAuth";
 import { useYouTubeAPI } from "../hooks/useYouTubeAPI";
 
 type PlaylistMeta = {
@@ -26,23 +25,11 @@ export default function PopularJamms() {
   const [deletingPlaylistId, setDeletingPlaylistId] = useState<number | null>(null);
   const { toasts, dismissToast, showError, showSuccess } = useToasts();
   const youtubeApiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
-  const { isAuthenticated, getAccessToken } = useGoogleAuth();
-  const { playlists: userPlaylists, fetchPlaylists } = useYouTubeAPI(getAccessToken);
-
-  const ownedPlaylistIds = useMemo(
-    () => new Set((userPlaylists || []).map((playlist) => playlist.id)),
-    [userPlaylists]
-  );
+  const { getPublicPlaylistVideoIds } = useYouTubeAPI();
 
   useEffect(() => {
     loadPopularPlaylists();
   }, []);
-
-  useEffect(() => {
-    if (isAuthenticated && userPlaylists.length === 0) {
-      fetchPlaylists();
-    }
-  }, [isAuthenticated, userPlaylists.length, fetchPlaylists]);
 
   const loadPopularPlaylists = async () => {
     try {
@@ -243,7 +230,7 @@ export default function PopularJamms() {
       {loading && (
         <div className="max-w-4xl mx-auto">
           <div className="bg-white p-8 text-center">
-            <div className="animate-spin h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-red-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading popular playlists...</p>
           </div>
         </div>
@@ -263,7 +250,6 @@ export default function PopularJamms() {
                   (() => {
                     const playlistId = resolvePlaylistId(playlist);
                     const meta = playlistId ? playlistMeta[playlistId] : undefined;
-                    const isOwner = Boolean(playlistId && isAuthenticated && ownedPlaylistIds.has(playlistId));
                     const isDeleting = deletingPlaylistId === playlist.id;
 
                     return (
@@ -310,15 +296,6 @@ export default function PopularJamms() {
                           >
                             Play
                           </button>
-                          {isOwner && (
-                            <button
-                              onClick={() => handleDeletePlaylist(playlist)}
-                              disabled={isDeleting}
-                              className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                            >
-                              {isDeleting ? 'Deleting...' : 'Delete'}
-                            </button>
-                          )}
                         </div>
                       </div>
                     );

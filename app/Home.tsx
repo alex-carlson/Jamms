@@ -10,11 +10,10 @@ import Navigation from "./components/Navigation";
 import VideoPlayer from "./components/VideoPlayer";
 import PlayerControls from "./components/PlayerControls";
 import PlayerHeader from "./components/PlayerHeader";
-import AuthArea from "./components/AuthArea";
-import PlaylistSelector from "./components/PlaylistSelector";
+import PlaylistForm from "./components/PlaylistForm";
+import CountdownOverlay from "./components/CountdownOverlay";
 import Footer from "./components/Footer";
-import { useGoogleAuth } from "./hooks/useGoogleAuth";
-import { useYouTubeAPI, YouTubePlaylist } from "./hooks/useYouTubeAPI";
+import { useYouTubeAPI } from "./hooks/useYouTubeAPI";
 import { extractPlaylistId, createEmbedUrl, shuffleArray } from "./hooks/useYouTubeUtils";
 import { usePowerHourWithOverlay } from "./hooks/usePowerHourWithOverlay";
 import { supabase } from "../lib/supabase";
@@ -42,8 +41,7 @@ export default function Home() {
   const [videoCount, setVideoCount] = useState(0);
   const [embedError, setEmbedError] = useState(false);
   const [shuffledIndices, setShuffledIndices] = useState<number[]>([]);
-  const [totalVideos, setTotalVideos] = useState<number>(60);
-  const [shuffledPlaylists, setShuffledPlaylists] = useState<YouTubePlaylist[]>([]);
+  const [shuffledPlaylists, setShuffledPlaylists] = useState([]);
   const [shareWithCommunity, setShareWithCommunity] = useState(true);
   const [showPlaylistList, setShowPlaylistList] = useState(false);
   const youtubeApiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "";
@@ -56,8 +54,7 @@ export default function Home() {
   const timerIncrementRef = useRef(false);
   const previousPlaybackModeRef = useRef(playbackStartMode);
 
-  const { user, isAuthenticated, isLoading: authLoading, signIn, signOut, getAccessToken, error: authError, googleLoaded, isTokenExpiringSoon } = useGoogleAuth();
-  const { playlists, isLoading: playlistsLoading, error: playlistsError, fetchPlaylists, getPublicPlaylistVideoIds } = useYouTubeAPI(getAccessToken);
+  const { isLoading: playlistsLoading, error: playlistsError, getPublicPlaylistVideoIds } = useYouTubeAPI();
   const isManualProcessing = showManualInput && isLoading && !currentPlaylist;
 
   const sanitizePlaylistParam = (rawValue: string | null): string | null => {
@@ -107,11 +104,6 @@ export default function Home() {
     currentVideoIndex,
     initialVideoDuration: 60,
   });
-
-  // Fetch playlists after login
-  useEffect(() => {
-    if (isAuthenticated && playlists.length === 0) fetchPlaylists();
-  }, [isAuthenticated]);
 
   const goToNextVideo = useCallback(() => {
     if (!currentPlaylist || !shuffledIndices.length) return;
@@ -167,24 +159,6 @@ export default function Home() {
       startTitleTimer();
     }
   }
-
-  const fetchAllPlaylistVideoIds = async (playlistId: string, token: string) => {
-    const videoIds: string[] = [];
-    const videoTitles: string[] = [];
-    const videoAuthors: string[] = [];
-    let nextPageToken = "";
-    do {
-      const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=50${nextPageToken ? `&pageToken=${nextPageToken}` : ""}`, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      videoIds.push(...data.items.map((item: any) => item.snippet.resourceId.videoId));
-      videoTitles.push(...data.items.map((item: any) => item.snippet.title));
-      videoAuthors.push(...data.items.map((item: any) => item.snippet.videoOwnerChannelTitle ?? item.snippet.channelTitle ?? ""));
-      nextPageToken = data.nextPageToken;
-    } while (nextPageToken);
-    return { videoIds, videoTitles, videoAuthors };
-  };
 
   const trackPlaylistPlay = async (
     youtubeUrl: string,
@@ -269,7 +243,6 @@ export default function Home() {
     try {
       const { videoIds, videoTitles, videoAuthors } = await getPublicPlaylistVideoIds(url);
       const shuffled = shuffleArray(videoIds.map((_, i) => i));
-      setTotalVideos(shuffled.length);
       setShuffledIndices(shuffled);
 
       const playlistData = {
@@ -301,48 +274,6 @@ export default function Home() {
     handlePlaylistSubmitRef.current = handlePlaylistSubmit;
   });
 
-  const handleYouTubePlaylistSelect = async (playlist: YouTubePlaylist) => {
-    setIsLoading(true);
-    try {
-      const token = getAccessToken();
-      const { videoIds, videoTitles, videoAuthors } = await fetchAllPlaylistVideoIds(playlist.id, token);
-      const shuffled = shuffleArray(videoIds.map((_, i) => i));
-      setTotalVideos(shuffled.length);
-      setShuffledIndices(shuffled);
-
-      const playlistUrl = `https://www.youtube.com/playlist?list=${playlist.id}`;
-      const playlistData = {
-        id: playlist.id,
-        embedUrl: createEmbedUrl(playlist.id, shuffled[0]),
-        originalUrl: playlistUrl,
-        totalVideos: videoIds.length,
-        shuffledData: shuffled,
-        videoIds,
-        videoTitles,
-        videoAuthors,
-      };
-
-      setCurrentPlaylist(playlistData);
-      setCurrentVideoIndex(0);
-      setVideoCount(0);
-      setEmbedError(false);
-
-      // Track playlist play in Supabase only for explicitly public playlists
-      trackPlaylistPlay(
-        playlistUrl,
-        shareWithCommunity,
-        playlist.privacyStatus === 'private',
-        true,
-        playlist.title,
-        playlist.author
-      );
-    } catch {
-      setEmbedError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const resetPlaylist = () => {
     resetTimer();
     clearTimers();
@@ -352,7 +283,6 @@ export default function Home() {
     setVideoCount(0);
     setEmbedError(false);
     setShuffledIndices([]);
-    setTotalVideos(60);
     setShowPlaylistList(false);
   };
 
@@ -394,12 +324,6 @@ export default function Home() {
     }
     goToNextVideo();
   }, [powerHourActive, resetTimer, baseStart, goToNextVideo]);
-
-  const handleSignOut = () => {
-    signOut();
-    resetPlaylist();
-    setShowManualInput(false);
-  };
 
   const handleVideoDurationDetected = useCallback((durationSeconds: number) => {
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
@@ -519,113 +443,29 @@ export default function Home() {
         )}
 
         <div className="container mx-auto pb-2" style={{ position: "relative", zIndex: 1 }}>
-          {/* Countdown overlay for last 5 seconds before title */}
-          {showOverlay && (
-            <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-              <div className="bg-black bg-opacity-70 rounded-xl px-8 py-6 text-white text-6xl font-bold">
-                {overlaySecondsRemaining}
-              </div>
-            </div>
-          )}
-          {/* Loading during auth */}
-          {authLoading && !isManualProcessing && (
-            <div className="max-w-md mx-auto text-center bg-white">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-              <p className="text-gray-800">Initializing...</p>
-            </div>
-          )}
-
+          <CountdownOverlay showOverlay={showOverlay} overlaySecondsRemaining={overlaySecondsRemaining} />
           {/* Loading during manual playlist processing */}
-          {isManualProcessing && (
+          {showManualInput && isLoading && (
             <div className="max-w-4xl mx-auto text-center bg-white py-10">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
               <p className="text-gray-800">Loading playlist videos...</p>
             </div>
           )}
 
-          {!currentPlaylist && (
-            <AuthArea
-              authLoading={authLoading}
-              showManualInput={showManualInput}
-              isAuthenticated={isAuthenticated}
-              isManualProcessing={isManualProcessing}
-              signIn={signIn}
-              authError={authError}
-              googleLoaded={googleLoaded}
-              setShowManualInput={setShowManualInput}
-              handlePlaylistSubmit={handlePlaylistSubmit}
-              isLoading={isLoading}
-              shareWithCommunity={shareWithCommunity}
-              onShareWithCommunityChange={setShareWithCommunity}
-            />
-          )}
-
-          {/* Playlist Selector */}
-          {isAuthenticated && !currentPlaylist && !showManualInput && user && (
-            <div className="content">
-              {isTokenExpiringSoon() && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="text-yellow-600">⚠️</div>
-                    <div>
-                      <h3 className="text-sm font-medium text-yellow-800">Session Expiring Soon</h3>
-                      <p className="text-sm text-yellow-700 mt-1">Consider signing in again for uninterrupted access.</p>
-                      <button
-                        onClick={() => { signOut(); setTimeout(signIn, 100); }}
-                        className="mt-2 text-sm bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded font-medium transition-colors"
-                      >
-                        Refresh Session
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {isLoading && (
-                <div className="max-w-4xl mx-auto text-center bg-white py-6">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-                  <p className="text-gray-800">Loading playlist videos...</p>
-                </div>
-              )}
-
-              {!isLoading && (
-                <>
-                  <PlaylistSelector
-                    user={user}
-                    playlists={shuffledPlaylists.length ? shuffledPlaylists : playlists}
-                    isLoading={playlistsLoading}
-                    error={playlistsError}
-                    onPlaylistSelect={handleYouTubePlaylistSelect}
-                    onRefreshPlaylists={fetchPlaylists}
-                    onSignOut={handleSignOut}
-                    onManualInputClick={() => setShowManualInput(true)}
-                    isShuffled={!!shuffledPlaylists.length}
-                    shareWithCommunity={shareWithCommunity}
-                    onShareWithCommunityChange={setShareWithCommunity}
-                  />
-                </>
-              )}
+          {/* Manual playlist input form */}
+          {!currentPlaylist && !isLoading && (
+            <div className="content bg-white max-w-4xl mx-auto">
+              <PlaylistForm
+                onSubmit={handlePlaylistSubmit}
+                isLoading={isLoading}
+                shareWithCommunity={shareWithCommunity}
+                onShareWithCommunityChange={setShareWithCommunity}
+              />
             </div>
           )}
           {/* Video Player */}
           {currentPlaylist && (
             <div className="mx-auto transition-all duration-300 max-w-6xl">
-              {isAuthenticated && isTokenExpiringSoon() && (
-                <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-yellow-600">⚠️</span>
-                    <span className="text-sm text-yellow-800 font-medium">
-                      Session expiring soon
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => { signOut(); setTimeout(signIn, 100); }}
-                    className="text-xs bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-1 rounded transition-colors"
-                  >
-                    Refresh
-                  </button>
-                </div>
-              )}
 
               <div className="player relative w-full" id="cast">
                 <PlayerHeader
@@ -666,7 +506,7 @@ export default function Home() {
                 videoDuration={videoDuration}
                 playbackStartMode={playbackStartMode}
                 currentVideoIndex={currentVideoIndex}
-                totalVideos={totalVideos}
+                totalVideos={shuffledIndices.length}
                 onDurationChange={setVideoDuration}
                 onPlaybackStartModeChange={setPlaybackStartMode}
                 onTogglePlayPause={onTogglePlayPause}

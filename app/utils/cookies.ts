@@ -1,5 +1,5 @@
 /**
- * Cookie utility functions for persistent authentication
+ * Cookie utility functions
  */
 
 interface CookieOptions {
@@ -53,81 +53,4 @@ export const deleteCookie = (name: string, path: string = '/') => {
   if (typeof document === 'undefined') return;
 
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${path};`;
-};
-
-/**
- * Auth-specific cookie functions
- */
-export const AUTH_COOKIES = {
-  ACCESS_TOKEN: 'google_access_token',
-  USER_INFO: 'user_info',
-  EXPIRES_AT: 'token_expires_at',
-  SESSION_EXPIRES_AT: 'session_expires_at'
-};
-
-export const saveAuthData = (
-  accessToken: string,
-  userInfo: any,
-  expiresIn: number = 3600,
-  sessionDays: number = 7
-) => {
-  const expiresAt = Date.now() + (expiresIn * 1000);
-  const sessionExpiresAt = Date.now() + (sessionDays * 24 * 60 * 60 * 1000);
-
-  setCookie(AUTH_COOKIES.ACCESS_TOKEN, accessToken, { expires: sessionDays });
-  setCookie(AUTH_COOKIES.USER_INFO, JSON.stringify(userInfo), { expires: sessionDays });
-  setCookie(AUTH_COOKIES.EXPIRES_AT, expiresAt.toString(), { expires: sessionDays });
-  setCookie(AUTH_COOKIES.SESSION_EXPIRES_AT, sessionExpiresAt.toString(), { expires: sessionDays });
-};
-
-export const getAuthData = () => {
-  const accessToken = getCookie(AUTH_COOKIES.ACCESS_TOKEN);
-  const userInfoStr = getCookie(AUTH_COOKIES.USER_INFO);
-  const expiresAtStr = getCookie(AUTH_COOKIES.EXPIRES_AT);
-  const sessionExpiresAtStr = getCookie(AUTH_COOKIES.SESSION_EXPIRES_AT);
-
-  if (!accessToken || !userInfoStr || !expiresAtStr || !sessionExpiresAtStr) {
-    return null;
-  }
-
-  const expiresAt = parseInt(expiresAtStr, 10);
-  const sessionExpiresAt = parseInt(sessionExpiresAtStr, 10);
-
-  // Check if app session is expired
-  if (Date.now() > sessionExpiresAt) {
-    clearAuthData();
-    return null;
-  }
-
-  try {
-    const userInfo = JSON.parse(userInfoStr);
-    return {
-      accessToken,
-      userInfo,
-      expiresAt,
-      sessionExpiresAt,
-      tokenExpired: Date.now() > expiresAt
-    };
-  } catch (error) {
-    console.error('Error parsing stored user info:', error);
-    clearAuthData();
-    return null;
-  }
-};
-
-export const clearAuthData = () => {
-  deleteCookie(AUTH_COOKIES.ACCESS_TOKEN);
-  deleteCookie(AUTH_COOKIES.USER_INFO);
-  deleteCookie(AUTH_COOKIES.EXPIRES_AT);
-  deleteCookie(AUTH_COOKIES.SESSION_EXPIRES_AT);
-};
-
-export const isTokenExpiringSoon = (bufferMinutes: number = 5): boolean => {
-  const expiresAtStr = getCookie(AUTH_COOKIES.EXPIRES_AT);
-  if (!expiresAtStr) return true;
-
-  const expiresAt = parseInt(expiresAtStr, 10);
-  const bufferTime = bufferMinutes * 60 * 1000;
-
-  return Date.now() > (expiresAt - bufferTime);
 };
