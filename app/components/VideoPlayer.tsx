@@ -29,9 +29,12 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
     ref
 ) {
     const playerRef = useRef<any>(null);
+    const preloadPlayerRef = useRef<any>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const preloadContainerRef = useRef<HTMLDivElement>(null);
     const apiReadyRef = useRef(false);
     const volumeFadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const [isFadingOut, setIsFadingOut] = useState(false);
 
     const getOneThirdModeStart = useCallback((duration: number) => {
         if (duration > 8 * 60) {
@@ -133,6 +136,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         return () => {
             stopVolumeFade();
             playerRef.current?.destroy();
+            preloadPlayerRef.current?.destroy();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -192,7 +196,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                             }
                             playerRef.current.unMute?.();
                             fadePlayerVolume(100, 400);
-                            playerRef.current.playVideo();
+                            playerRef.current.playVideo?.();
                         };
 
                         trySeekAndPlay();
@@ -201,7 +205,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                     if (state === 1) {
                         fadePlayerVolume(100, 400);
                         setIsSeekedAndPlaying(true);
-                        if (onVideoPlay && powerHourActive) onVideoPlay();
+                        if (onVideoPlay) onVideoPlay();
                     } else if (state === 0 || state === -1 || state === 3 || state === 5) {
                         fadePlayerVolume(0, 400);
                         setIsSeekedAndPlaying(false);
@@ -218,12 +222,46 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                 },
             },
         });
+
+        // Initialize preload player
+        if (preloadContainerRef.current) {
+            preloadPlayerRef.current = new window.YT.Player(preloadContainerRef.current, {
+                height: '1',
+                width: '1',
+                videoId: '',
+                playerVars: {
+                    autoplay: 0,
+                    controls: 0,
+                    disablekb: 1,
+                    enablejsapi: 1,
+                    fs: 0,
+                    iv_load_policy: 3,
+                    modestbranding: 1,
+                    playsinline: 1,
+                    rel: 0,
+                    showinfo: 0,
+                },
+                events: {
+                    onReady: () => {
+                        console.log('[PRELOAD] Preload player is ready');
+                    },
+                    onStateChange: (event: any) => {
+                        const states = { '-1': 'unstarted', '0': 'ended', '1': 'playing', '2': 'paused', '3': 'buffering', '5': 'cued' };
+                        console.log('[PRELOAD] State changed to:', states[event.data] || event.data);
+                    },
+                    onError: (event: any) => {
+                        console.warn('[PRELOAD] Player error:', event.data);
+                    },
+                },
+            });
+        }
     }, [currentPlaylist, currentVideoIndex, playbackStartMode, powerHourActive, onEmbedError, onUnplayableVideo, onVideoPlay, onVideoEnd, onPlayerReady, getOneThirdModeStart, fadePlayerVolume]);
 
     // Hide synchronously on playlist/index/mode change to prevent thumbnail flash before playback.
     useLayoutEffect(() => {
         fadePlayerVolume(0, 0);
         setIsSeekedAndPlaying(false);
+        setIsFadingOut(false); // Reset fade state on video change
     }, [currentPlaylist?.id, currentVideoIndex, playbackStartMode, fadePlayerVolume]);
 
     // Load new video when currentVideoIndex changes (without destroying player)
@@ -269,6 +307,48 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         // Keep hidden until player emits a visible state (playing/paused)
     }, [currentVideoIndex, currentPlaylist, playbackStartMode, getOneThirdModeStart]);
 
+    // Preload next video
+    useEffect(() => {
+        if (!preloadPlayerRef.current || !currentPlaylist || powerHourActive === false) {
+            console.log('[PRELOAD] Skipping preload - missing player, playlist, or power hour inactive');
+            return;
+        }
+
+        const nextVideoIndex = (currentVideoIndex + 1) % currentPlaylist.shuffledData.length;
+        const nextVideoId = currentPlaylist.videoIds[currentPlaylist.shuffledData[nextVideoIndex]];
+
+        console.log('[PRELOAD] Current video index:', currentVideoIndex, 'Next video index:', nextVideoIndex);
+        console.log('[PRELOAD] Next video ID to preload:', nextVideoId);
+
+        if (!nextVideoId || nextVideoId.length !== 11) {
+            console.warn('[PRELOAD] Invalid next video ID, skipping preload');
+            return;
+        }
+
+        // Delay preloading to not interfere with current video
+        const preloadTimeout = setTimeout(() => {
+            console.log('[PRELOAD] Starting preload for video:', nextVideoId);
+            try {
+                if (typeof preloadPlayerRef.current?.cueVideoById === 'function') {
+                    preloadPlayerRef.current.cueVideoById({
+                        videoId: nextVideoId,
+                        startSeconds: 0
+                    });
+                    console.log('[PRELOAD] Successfully initiated cueVideoById for:', nextVideoId);
+                } else {
+                    console.warn('[PRELOAD] cueVideoById function not available');
+                }
+            } catch (error) {
+                console.error('[PRELOAD] Failed to preload video:', nextVideoId, error);
+            }
+        }, 1000); // Wait 1 second after current video loads
+
+        return () => {
+            console.log('[PRELOAD] Cleaning up preload timeout');
+            clearTimeout(preloadTimeout);
+        };
+    }, [currentVideoIndex, currentPlaylist, powerHourActive]);
+
     useEffect(() => {
         if (!playerRef.current) return;
 
@@ -297,17 +377,46 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         const videoId = currentPlaylist.videoIds[currentPlaylist.shuffledData[targetIdx]];
 
         if (videoId && typeof playerRef.current.loadVideoById === "function") {
-            playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
+            // Check if we have this video preloaded
+            const isNextVideo = targetIdx === (currentVideoIndex + 1) % currentPlaylist.shuffledData.length;
+            console.log('[PRELOAD] playVideoAt called - targetIdx:', targetIdx, 'videoId:', videoId, 'isNextVideo:', isNextVideo);
+
+            if (isNextVideo && preloadPlayerRef.current) {
+                try {
+                    const preloadedVideoData = preloadPlayerRef.current.getVideoData?.();
+                    console.log('[PRELOAD] Checking preloaded video data:', preloadedVideoData);
+
+                    if (preloadedVideoData?.video_id === videoId) {
+                        console.log('[PRELOAD] ✓ Using preloaded video for faster transition:', videoId);
+                        // Use preloaded video for faster transition
+                        playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
+                    } else {
+                        console.log('[PRELOAD] ✗ Preloaded video mismatch. Expected:', videoId, 'Got:', preloadedVideoData?.video_id);
+                        playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
+                    }
+                } catch (error) {
+                    console.warn('[PRELOAD] Error checking preloaded video:', error);
+                    playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
+                }
+            } else {
+                console.log('[PRELOAD] Not next video or no preload player, loading normally');
+                playerRef.current.loadVideoById({ videoId, startSeconds: 0 });
+            }
         }
     }, [currentPlaylist, currentVideoIndex]);
 
     const stopVideo = useCallback(() => {
+        // Start visual fade out
+        setIsFadingOut(true);
+
         fadePlayerVolume(0, 400, () => {
             playerRef.current?.pauseVideo();
         });
     }, [fadePlayerVolume]);
 
     const startPlayback = useCallback(() => {
+        // Reset visual fade state
+        setIsFadingOut(false);
         fadePlayerVolume(0, 0);
         playerRef.current?.playVideo();
         fadePlayerVolume(100, 400);
@@ -318,7 +427,7 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         stopVideo,
         startPlayback,
         player: playerRef.current,
-    }), [playVideoAt, stopVideo, startPlayback]);
+    }), [currentVideoIndex, currentPlaylist, powerHourActive]);
 
     return (
         <div
@@ -326,8 +435,9 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
             style={{
                 width: '100vw',
                 height: '100vh',
-                opacity: isSeekedAndPlaying ? 1 : 0,
+                opacity: isFadingOut ? 0 : (isSeekedAndPlaying ? 1 : 0),
                 pointerEvents: 'none',
+                transition: isFadingOut ? 'opacity 400ms ease-out' : undefined,
             }}
         >
             <div
@@ -338,6 +448,19 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                     ref={containerRef}
                     className="w-full h-full"
                     id={`youtube-player-${currentPlaylist?.id || 'default'}`}
+                />
+                {/* Hidden preload player */}
+                <div
+                    ref={preloadContainerRef}
+                    style={{
+                        position: 'absolute',
+                        width: '1px',
+                        height: '1px',
+                        opacity: 0,
+                        pointerEvents: 'none',
+                        top: '-9999px'
+                    }}
+                    id={`preload-player-${currentPlaylist?.id || 'default'}`}
                 />
             </div>
         </div>

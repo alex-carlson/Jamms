@@ -141,10 +141,27 @@ export default function Home() {
 
   async function handleTimerExpired() {
     timerIncrementRef.current = false;
+
+    // First fade out current video
+    if (youtubePlayerRef.current?.stopVideo) {
+      youtubePlayerRef.current.stopVideo();
+      // Wait for fade out to complete (400ms fade duration)
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
+    // Then play the can open sound
     await playCanOpenSfx();
+
+    // Reset timer and go to next video (timer will start when video actually begins playing)
     resetTimer();
-    baseStart();
     goToNextVideo();
+  }
+
+  function handleVideoPlay() {
+    // Start the timer when the video actually starts playing
+    if (!powerHourActive) {
+      baseStart();
+    }
   }
 
   function handleVideoEnd() {
@@ -154,8 +171,8 @@ export default function Home() {
   }
 
   function handlePlayerReady() {
+    // Timer will start when video actually begins playing via handleVideoPlay
     if (powerHourActive) {
-      baseStart();
       startTitleTimer();
     }
   }
@@ -495,6 +512,7 @@ export default function Home() {
                   onEmbedError={() => setEmbedError(true)}
                   onUnplayableVideo={handleUnplayableVideo}
                   onVideoDurationDetected={handleVideoDurationDetected}
+                  onVideoPlay={handleVideoPlay}
                   onVideoEnd={handleVideoEnd}
                   onPlayerReady={handlePlayerReady}
                 />
