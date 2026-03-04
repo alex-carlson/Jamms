@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Play } from "lucide-react";
 import Header from "../components/Header";
 import Navigation from "../components/Navigation";
 import Toast, { useToasts } from "../components/Toast";
@@ -228,7 +229,7 @@ export default function PopularJamms() {
 
       {/* Loading State */}
       {loading && (
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="bg-white p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-red-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading popular playlists...</p>
@@ -255,13 +256,13 @@ export default function PopularJamms() {
                     return (
                       <div
                         key={playlist.id}
-                        className="flex items-center justify-between p-6 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors min-w-0 gap-3 sm:gap-0"
                       >
-                        <div className="flex items-center gap-6">
-                          <div className="text-2xl font-bold text-amber-600 w-8">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6 min-w-0 flex-1 sm:pr-4">
+                          <div className="text-xl sm:text-2xl font-bold text-amber-600 w-6 sm:w-8 flex-shrink-0 text-center sm:text-left">
                             {index + 1}
                           </div>
-                          <div className="w-20 h-20 bg-gray-100 overflow-hidden flex-shrink-0">
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 overflow-hidden flex-shrink-0 mx-auto sm:mx-0">
                             {meta?.thumbnail ? (
                               <div
                                 className="w-full h-full bg-center bg-cover"
@@ -275,26 +276,26 @@ export default function PopularJamms() {
                               </div>
                             )}
                           </div>
-                          <div className="flex-1">
-                            <h3 className="font-bold text-lg text-gray-900 mb-1">
+                          <div className="flex-1 min-w-0 text-center sm:text-left">
+                            <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1 truncate">
                               {meta?.title || 'Untitled playlist'}
                             </h3>
-                            <p className="text-gray-600 text-sm">
+                            <p className="text-gray-600 text-xs sm:text-sm truncate">
                               {meta?.author || 'Unknown author'}
                             </p>
-                            <div className="flex gap-4 mt-2">
-                              <span className="text-sm text-gray-500">
+                            <div className="flex gap-4 mt-2 justify-center sm:justify-start">
+                              <span className="text-xs sm:text-sm text-gray-500">
                                 {formatPlays(playlist.plays)} plays
                               </span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 justify-center sm:justify-start">
                           <button
                             onClick={() => handlePlayPlaylist(playlist)}
-                            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                            className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm sm:text-base"
                           >
-                            Play
+                            <Play className="h-4 w-4" fill="currentColor" /> Play
                           </button>
                         </div>
                       </div>
