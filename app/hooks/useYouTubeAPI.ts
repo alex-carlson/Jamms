@@ -23,7 +23,8 @@ interface UseYouTubeAPIReturn {
     isLoading: boolean;
     error: string | null;
     getPublicPlaylistVideoIds: (
-        playlistUrl: string
+        playlistUrl: string,
+        onProgress?: (progress: { current: number; total: number }) => void
     ) => Promise<PublicPlaylistVideos>;
 }
 
@@ -37,7 +38,8 @@ export const useYouTubeAPI = (): UseYouTubeAPIReturn => {
     // Fetch videos from ANY public playlist (API key only)
     // -----------------------------
     const getPublicPlaylistVideoIds = async (
-        playlistUrl: string
+        playlistUrl: string,
+        onProgress?: (progress: { current: number; total: number }) => void
     ): Promise<PublicPlaylistVideos> => {
         const playlistId =
             playlistUrl.match(/[?&]list=([a-zA-Z0-9_-]+)/)?.[1] ??
@@ -48,6 +50,8 @@ export const useYouTubeAPI = (): UseYouTubeAPIReturn => {
         const videoAuthors: string[] = [];
 
         let pageToken: string | undefined;
+        let totalItems: number | null = null;
+        let fetchedItems = 0;
 
         try {
             do {
@@ -74,6 +78,11 @@ export const useYouTubeAPI = (): UseYouTubeAPIReturn => {
 
                 const data = await res.json();
 
+                // Set total items on first request
+                if (totalItems === null && data.pageInfo?.totalResults) {
+                    totalItems = data.pageInfo.totalResults;
+                }
+
                 for (const item of data.items ?? []) {
                     const videoId =
                         item.snippet?.resourceId?.videoId;
@@ -86,7 +95,16 @@ export const useYouTubeAPI = (): UseYouTubeAPIReturn => {
                         videoIds.push(videoId);
                         videoTitles.push(title ?? "");
                         videoAuthors.push(author ?? "");
+                        fetchedItems++;
                     }
+                }
+
+                // Report progress if callback provided
+                if (onProgress && totalItems) {
+                    onProgress({
+                        current: fetchedItems,
+                        total: totalItems
+                    });
                 }
 
                 pageToken = data.nextPageToken;

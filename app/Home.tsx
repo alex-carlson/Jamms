@@ -41,6 +41,7 @@ export default function Home() {
   const [videoCount, setVideoCount] = useState(0);
   const [embedError, setEmbedError] = useState(false);
   const [shuffledIndices, setShuffledIndices] = useState<number[]>([]);
+  const [shuffleProgress, setShuffleProgress] = useState<{ current: number; total: number } | null>(null);
   const [shuffledPlaylists, setShuffledPlaylists] = useState([]);
   const [shareWithCommunity, setShareWithCommunity] = useState(true);
   const [showPlaylistList, setShowPlaylistList] = useState(false);
@@ -252,13 +253,16 @@ export default function Home() {
 
   async function handlePlaylistSubmit(url: string, shouldShare: boolean = shareWithCommunity) {
     setIsLoading(true);
+    setShuffleProgress(null);
     const playlistId = extractPlaylistId(url);
     if (!playlistId) return setIsLoading(false);
 
     console.log("Submitting playlist");
 
     try {
-      const { videoIds, videoTitles, videoAuthors } = await getPublicPlaylistVideoIds(url);
+      const { videoIds, videoTitles, videoAuthors } = await getPublicPlaylistVideoIds(url, (progress) => {
+        setShuffleProgress(progress);
+      });
       const shuffled = shuffleArray(videoIds.map((_, i) => i));
       setShuffledIndices(shuffled);
 
@@ -284,6 +288,7 @@ export default function Home() {
       setEmbedError(true);
     } finally {
       setIsLoading(false);
+      setShuffleProgress(null);
     }
   }
 
@@ -464,8 +469,26 @@ export default function Home() {
           {/* Loading during manual playlist processing */}
           {showManualInput && isLoading && (
             <div className="max-w-4xl mx-auto text-center bg-white py-10">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-              <p className="text-gray-800">Loading playlist videos...</p>
+              <div className="w-full max-w-md mx-auto mb-4">
+                {shuffleProgress ? (
+                  <>
+                    <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                      <div
+                        className="bg-red-600 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${(shuffleProgress.current / shuffleProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-gray-800 text-sm">
+                      Loading videos: {shuffleProgress.current} of {shuffleProgress.total}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                    <p className="text-gray-800">Preparing playlist...</p>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
