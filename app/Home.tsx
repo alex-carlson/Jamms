@@ -479,7 +479,7 @@ export default function Home() {
                       ></div>
                     </div>
                     <p className="text-gray-800 text-sm">
-                      Loading videos: {shuffleProgress.current} of {shuffleProgress.total}
+                      Loading: {shuffleProgress.current} of {shuffleProgress.total}
                     </p>
                   </>
                 ) : (
