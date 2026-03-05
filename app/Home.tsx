@@ -485,7 +485,7 @@ export default function Home() {
                 ) : (
                   <>
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-                    <p className="text-gray-800">Preparing playlist...</p>
+                    <p className="text-gray-800">Shuffling playlist...</p>
                   </>
                 )}
               </div>
