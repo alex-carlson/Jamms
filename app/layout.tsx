@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Lexend, Libre_Caslon_Text } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css";
@@ -23,6 +23,16 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  // Alternative: allow zooming
+  // maximumScale: 5,
+  // userScalable: true,
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,11 +40,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-    <body
-    className={`${lexend.variable} ${libreCaslonText.variable} antialiased`}
-    >
-    {children}
-    <SpeedInsights/>
+      <body
+        className={`${lexend.variable} ${libreCaslonText.variable} antialiased`}
+      >
+        {children}
+        <SpeedInsights />
       </body>
     </html>
   );
