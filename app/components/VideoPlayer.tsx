@@ -243,11 +243,9 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
                 },
                 events: {
                     onReady: () => {
-                        console.log('[PRELOAD] Preload player is ready');
                     },
                     onStateChange: (event: any) => {
                         const states = { '-1': 'unstarted', '0': 'ended', '1': 'playing', '2': 'paused', '3': 'buffering', '5': 'cued' };
-                        console.log('[PRELOAD] State changed to:', states[event.data] || event.data);
                     },
                     onError: (event: any) => {
                         console.warn('[PRELOAD] Player error:', event.data);
@@ -310,15 +308,11 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
     // Preload next video
     useEffect(() => {
         if (!preloadPlayerRef.current || !currentPlaylist || powerHourActive === false) {
-            console.log('[PRELOAD] Skipping preload - missing player, playlist, or power hour inactive');
             return;
         }
 
         const nextVideoIndex = (currentVideoIndex + 1) % currentPlaylist.shuffledData.length;
         const nextVideoId = currentPlaylist.videoIds[currentPlaylist.shuffledData[nextVideoIndex]];
-
-        console.log('[PRELOAD] Current video index:', currentVideoIndex, 'Next video index:', nextVideoIndex);
-        console.log('[PRELOAD] Next video ID to preload:', nextVideoId);
 
         if (!nextVideoId || nextVideoId.length !== 11) {
             console.warn('[PRELOAD] Invalid next video ID, skipping preload');
@@ -327,14 +321,12 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
 
         // Delay preloading to not interfere with current video
         const preloadTimeout = setTimeout(() => {
-            console.log('[PRELOAD] Starting preload for video:', nextVideoId);
             try {
                 if (typeof preloadPlayerRef.current?.cueVideoById === 'function') {
                     preloadPlayerRef.current.cueVideoById({
                         videoId: nextVideoId,
                         startSeconds: 0
                     });
-                    console.log('[PRELOAD] Successfully initiated cueVideoById for:', nextVideoId);
                 } else {
                     console.warn('[PRELOAD] cueVideoById function not available');
                 }
@@ -344,7 +336,6 @@ export default forwardRef<any, VideoPlayerProps>(function VideoPlayer(
         }, 1000); // Wait 1 second after current video loads
 
         return () => {
-            console.log('[PRELOAD] Cleaning up preload timeout');
             clearTimeout(preloadTimeout);
         };
     }, [currentVideoIndex, currentPlaylist, powerHourActive]);
