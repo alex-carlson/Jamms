@@ -7,11 +7,11 @@ interface PlayerControlsProps {
     timeRemaining: number;
     powerHourActive: boolean;
     videoDuration: number;
-    playbackStartMode: "thirty-seconds" | "one-third" | "full";
+    playbackStartMode: "thirty-seconds" | "one-third" | "five-minutes" | "fifteen-minutes" | "full";
     currentVideoIndex: number;
     totalVideos: number;
     onDurationChange: (duration: number) => void;
-    onPlaybackStartModeChange: (mode: "thirty-seconds" | "one-third" | "full") => void;
+    onPlaybackStartModeChange: (mode: "thirty-seconds" | "one-third" | "five-minutes" | "fifteen-minutes" | "full") => void;
     onTogglePlayPause: () => void;
     onNextVideo: () => void;
     isPlaying: boolean; // state to determine play/pause icon
@@ -60,11 +60,13 @@ export default function PlayerControls({
                                 <span className="hidden sm:inline">Duration</span>
                                 <select
                                     value={playbackStartMode}
-                                    onChange={(e) => onPlaybackStartModeChange(e.target.value as "thirty-seconds" | "one-third" | "full")}
+                                    onChange={(e) => onPlaybackStartModeChange(e.target.value as "thirty-seconds" | "one-third" | "five-minutes" | "fifteen-minutes" | "full")}
                                     className="bg-transparent border border-white/50 hover:border-white text-white rounded-md px-2 py-1 text-xs sm:text-sm"
                                 >
                                     <option value="thirty-seconds">30s</option>
                                     <option value="one-third">60s</option>
+                                    <option value="five-minutes">5m</option>
+                                    <option value="fifteen-minutes">15m</option>
                                     <option value="full">Full</option>
                                 </select>
                             </label>

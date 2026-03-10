@@ -35,7 +35,7 @@ export default function Home() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [currentPlaylist, setCurrentPlaylist] = useState<PlaylistData | null>(null);
-  const [playbackStartMode, setPlaybackStartMode] = useState<"thirty-seconds" | "one-third" | "full">("one-third");
+  const [playbackStartMode, setPlaybackStartMode] = useState<"thirty-seconds" | "one-third" | "five-minutes" | "fifteen-minutes" | "full">("one-third");
   const [showManualInput, setShowManualInput] = useState(false);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(-1);
   const [videoCount, setVideoCount] = useState(0);
@@ -366,6 +366,22 @@ export default function Home() {
       return;
     }
 
+    if (playbackStartMode === "one-third") {
+      setVideoDuration(durationSeconds < 60 ? durationSeconds : 60, true);
+      return;
+    }
+
+    if (playbackStartMode === "five-minutes") {
+      setVideoDuration(durationSeconds < 300 ? durationSeconds : 300, true);
+      return;
+    }
+
+    if (playbackStartMode === "fifteen-minutes") {
+      setVideoDuration(durationSeconds < 900 ? durationSeconds : 900, true);
+      return;
+    }
+
+    // Default for one-third mode (fallback)
     setVideoDuration(durationSeconds < 60 ? durationSeconds : 60, true);
   }, [playbackStartMode, currentPlaylist, currentVideoIndex, setVideoDuration]);
 
@@ -387,6 +403,24 @@ export default function Home() {
 
     if (playbackStartMode === "one-third") {
       setVideoDuration(60, true);
+      if (powerHourActive) {
+        resetTimer();
+        baseStart();
+      }
+      return;
+    }
+
+    if (playbackStartMode === "five-minutes") {
+      setVideoDuration(300, true);
+      if (powerHourActive) {
+        resetTimer();
+        baseStart();
+      }
+      return;
+    }
+
+    if (playbackStartMode === "fifteen-minutes") {
+      setVideoDuration(900, true);
       if (powerHourActive) {
         resetTimer();
         baseStart();

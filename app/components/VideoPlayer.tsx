@@ -14,7 +14,7 @@ interface VideoPlayerProps {
     currentPlaylist: PlaylistData;
     currentVideoIndex: number;
     videoDuration: number;
-    playbackStartMode: "thirty-seconds" | "one-third" | "full";
+    playbackStartMode: "thirty-seconds" | "one-third" | "five-minutes" | "fifteen-minutes" | "full";
     powerHourActive: boolean;
     onEmbedError: () => void;
     onUnplayableVideo?: () => void;
