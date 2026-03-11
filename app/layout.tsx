@@ -21,6 +21,25 @@ export const metadata: Metadata = {
   icons: {
     icon: '/jamms-favicon.png',
   },
+  openGraph: {
+    title: "Jamms Power Hours",
+    description: "Evvrybody in the cluub gettin PIPSY",
+    type: "website",
+    images: [
+      {
+        url: '/background.png',
+        width: 1200,
+        height: 630,
+        alt: 'Jamms Power Hours',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "Jamms Power Hours",
+    description: "Evvrybody in the cluub gettin PIPSY",
+    images: ['/background.png'],
+  },
 };
 
 export const viewport: Viewport = {
