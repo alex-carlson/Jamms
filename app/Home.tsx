@@ -263,7 +263,7 @@ export default function Home() {
       const { videoIds, videoTitles, videoAuthors } = await getPublicPlaylistVideoIds(url, (progress) => {
         setShuffleProgress(progress);
       });
-      const shuffled = shuffleArray(videoIds.map((_, i) => i));
+      const shuffled = shuffleArray(videoIds.map((_, i) => i), Math.random());
       setShuffledIndices(shuffled);
 
       const playlistData = {

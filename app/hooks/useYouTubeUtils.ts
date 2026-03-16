@@ -49,11 +49,58 @@ export const createAutoplayDirectEmbedUrl = (playlistId: string, videoIndex: num
     return `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&index=${videoIndex + 1}&start=60&autoplay=1&controls=1&showinfo=0&rel=0`;
 };
 
-// Fisher-Yates shuffle algorithm
-export const shuffleArray = (array: number[]): number[] => {
+// xoroshiro128+ pseudorandom number generator
+class Xoroshiro128Plus {
+    private state0: number;
+    private state1: number;
+
+    constructor(seed?: number) {
+        // Initialize with seed or current time
+        const s = seed ?? Date.now();
+        // Split seed into two 32-bit values for 64-bit state
+        this.state0 = s >>> 0;
+        this.state1 = (s * 0x9e3779b9) >>> 0;
+
+        // Warm up the generator
+        for (let i = 0; i < 10; i++) {
+            this.next();
+        }
+    }
+
+    private rotl(x: number, k: number): number {
+        return ((x << k) | (x >>> (32 - k))) >>> 0;
+    }
+
+    next(): number {
+        const s0 = this.state0;
+        let s1 = this.state1;
+        const result = (s0 + s1) >>> 0;
+
+        s1 ^= s0;
+        this.state0 = (this.rotl(s0, 26) ^ s1 ^ (s1 << 9)) >>> 0;
+        this.state1 = this.rotl(s1, 13);
+
+        return result;
+    }
+
+    // Generate random float between 0 and 1
+    random(): number {
+        return this.next() / 0x100000000;
+    }
+
+    // Generate random integer between 0 (inclusive) and max (exclusive)
+    randomInt(max: number): number {
+        return Math.floor(this.random() * max);
+    }
+}
+
+// Xoroshiro-based shuffle algorithm
+export const shuffleArray = (array: number[], seed?: number): number[] => {
     const shuffled = [...array];
+    const rng = new Xoroshiro128Plus(seed);
+
     for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = rng.randomInt(i + 1);
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
