@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CornerDownLeft, List } from "lucide-react";
+import { CornerDownLeft, List, Music } from "lucide-react";
 import Header from "./components/Header";
 import Navigation from "./components/Navigation";
 import VideoPlayer from "./components/VideoPlayer";
@@ -13,6 +13,7 @@ import PlayerHeader from "./components/PlayerHeader";
 import PlaylistForm from "./components/PlaylistForm";
 import CountdownOverlay from "./components/CountdownOverlay";
 import Footer from "./components/Footer";
+import Lyrics from "./components/lyrics";
 import { useYouTubeAPI } from "./hooks/useYouTubeAPI";
 import { extractPlaylistId, createEmbedUrl, shuffleArray } from "./hooks/useYouTubeUtils";
 import { usePowerHourWithOverlay } from "./hooks/usePowerHourWithOverlay";
@@ -45,6 +46,7 @@ export default function Home() {
   const [shuffledPlaylists, setShuffledPlaylists] = useState([]);
   const [shareWithCommunity, setShareWithCommunity] = useState(true);
   const [showPlaylistList, setShowPlaylistList] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
   const youtubeApiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "";
 
 
@@ -467,6 +469,14 @@ export default function Home() {
               <List className="h-8 w-8" strokeWidth={3} />
             </button>
 
+            <button
+              onClick={() => setShowLyrics((prev) => !prev)}
+              aria-label="Toggle lyrics"
+              className="fixed top-4 right-20 z-50 text-white p-2 transition-opacity opacity-70 hover:opacity-100"
+            >
+              <Music className="h-8 w-8" strokeWidth={3} />
+            </button>
+
             {showPlaylistList && (
               <div className="fixed top-16 right-4 z-50 w-80 max-h-[65vh] overflow-y-auto rounded-lg bg-black/80 border border-white/20 p-2">
                 <ul className="space-y-1">
@@ -483,6 +493,16 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {showLyrics && currentVideoIndex >= 0 && shuffledIndices.length > 0 && (
+              <div className="fixed top-16 right-20 z-50 w-100 max-h-[65vh] overflow-y-auto rounded-lg bg-black/80 border border-white/20 p-4">
+                <Lyrics
+                  artist={currentPlaylist.videoAuthors[shuffledIndices[currentVideoIndex]] || ""}
+                  title={currentPlaylist.videoTitles[shuffledIndices[currentVideoIndex]] || ""}
+                  searchQuery={currentPlaylist.videoTitles[shuffledIndices[currentVideoIndex]] || ""}
+                />
               </div>
             )}
           </>

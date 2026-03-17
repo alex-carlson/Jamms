@@ -43,7 +43,8 @@ const nextConfig: NextConfig = {
                 https://accounts.google.com
                 https://www.youtube.com
                 https://www.youtube-nocookie.com
-                https://*.supabase.co;
+                https://*.supabase.co
+                https://api.lyrics.ovh;
               frame-src 'self'
                 https://accounts.google.com
                 https://www.youtube.com
