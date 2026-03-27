@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
-import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CornerDownLeft, List, Music } from "lucide-react";
 import Header from "./components/Header";
@@ -82,7 +80,6 @@ export default function Home() {
     return extractPlaylistId(trimmed);
   };
 
-  // Power hour timer comes first
   const {
     powerHourActive,
     timeRemaining,
@@ -101,7 +98,6 @@ export default function Home() {
     startTitleTimer,
     clearTimers,
     resetOverlayAndTitle,
-    // ...other returned values
   } = usePowerHourWithOverlay({
     onTimerExpired: handleTimerExpired,
     currentVideoIndex,

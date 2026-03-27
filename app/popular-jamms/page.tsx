@@ -217,7 +217,7 @@ export default function PopularJamms() {
   };
 
   return (
-    <div className="min-h-screen bg-gold">
+    <div className="min-h-screen bg-gold p-2">
       <Header
         title="POPULAR JAMMS"
         subtitle="Most popular playlists from the community"
@@ -229,7 +229,7 @@ export default function PopularJamms() {
 
       {/* Loading State */}
       {loading && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <div className="max-w-4xl mx-auto">
           <div className="bg-white p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-red-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading popular playlists...</p>
