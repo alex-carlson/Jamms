@@ -30,9 +30,24 @@ Create a `.env.local` file in the root directory:
 
 ```bash
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id_here.apps.googleusercontent.com
+NEXT_PUBLIC_YOUTUBE_API_KEY=your_youtube_api_key
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-**Note**: The `NEXT_PUBLIC_` prefix is required for client-side environment variables in Next.js.
+Get the Firebase values from Firebase Console > Project Settings > Your apps > Config.
+The `NEXT_PUBLIC_` variables are included in the browser bundle and are fixed at build time.
+Do not put private credentials in them.
+
+`.env.local` is ignored by Git and is not automatically available to remote builds.
+Set the same variables in your hosting provider's build environment for each deployment
+environment (for example, Production and Preview on Vercel), then redeploy. For Cloudflare,
+they must be available when running `npm run cf:build`; Worker runtime variables alone
+do not configure the client bundle.
 
 ## Getting Started
 

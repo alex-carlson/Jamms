@@ -11,7 +11,9 @@ const firebaseConfig = {
 };
 
 if (!firebaseConfig.projectId) {
-  throw new Error('❌ Firebase environment variables missing.');
+  throw new Error(
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing. Set the Firebase environment variables in the deployment build environment and rebuild.'
+  );
 }
 
 const app = initializeApp(firebaseConfig);
