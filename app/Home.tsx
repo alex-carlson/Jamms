@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CornerDownLeft, List, Music } from "lucide-react";
 import Header from "./components/Header";
@@ -12,11 +12,13 @@ import PlaylistForm from "./components/PlaylistForm";
 import CountdownOverlay from "./components/CountdownOverlay";
 import Footer from "./components/Footer";
 import Lyrics from "./components/lyrics";
+import QRCodeModal from "./components/QRCodeModal";
+import PlaylistSelectorModal from "./components/PlaylistSelectorModal";
 import { useYouTubeAPI } from "./hooks/useYouTubeAPI";
+import { useYouTubeChannelQR } from "./hooks/useYouTubeChannelQR";
 import { extractPlaylistId, createEmbedUrl, shuffleArray } from "./hooks/useYouTubeUtils";
 import { usePowerHourWithOverlay } from "./hooks/usePowerHourWithOverlay";
-import { supabase } from "../lib/supabase";
-import { Suspense } from "react";
+import { firestoreHelpers, PlaylistPlay } from "../lib/firestore";
 
 export interface PlaylistData {
   id: string;
@@ -45,7 +47,13 @@ export default function Home() {
   const [shareWithCommunity, setShareWithCommunity] = useState(true);
   const [showPlaylistList, setShowPlaylistList] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
+  const [userChannelHandle, setUserChannelHandle] = useState<string | undefined>();
+  const [userChannelId, setUserChannelId] = useState<string | undefined>();
   const youtubeApiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY || "";
+
+  const { channelInfo, fetchChannelInfo } = useYouTubeChannelQR();
 
 
   const youtubePlayerRef = useRef<any>(null);
@@ -191,11 +199,7 @@ export default function Home() {
       if (!playlistId) return;
 
       // Check if playlist exists
-      const { data: existingPlaylist, error: selectError } = await supabase
-        .from('playlist_plays')
-        .select('id, plays')
-        .eq('youtube_url', youtubeUrl)
-        .maybeSingle<any>();
+      const { data: existingPlaylist, error: selectError } = await firestoreHelpers.getPlaylistByUrl(youtubeUrl);
 
       if (selectError) {
         console.error('Error checking playlist:', selectError);
@@ -203,12 +207,7 @@ export default function Home() {
       }
 
       if (existingPlaylist && typeof existingPlaylist.plays === 'number') {
-        await supabase
-          .from('playlist_plays')
-          .update({
-            plays: existingPlaylist.plays + 1,
-          })
-          .eq('id', existingPlaylist.id);
+        await firestoreHelpers.updatePlaylistPlays(existingPlaylist.id, existingPlaylist.plays + 1);
       } else if (shouldShare) {
         if (verifyPublicBeforeInsert) {
           const statusParams = new URLSearchParams({
@@ -227,15 +226,15 @@ export default function Home() {
         }
 
         // Insert new playlist with 1 play
-        const { error: insertError } = await supabase
-          .from('playlist_plays')
-          .insert({
-            youtube_url: youtubeUrl,
-            playlist_id: playlistId,
-            playlist_title: playlistTitle || null,
-            playlist_author: playlistAuthor || null,
-            plays: 1,
-          });
+        const { error: insertError } = await firestoreHelpers.insertPlaylist({
+          youtube_url: youtubeUrl,
+          playlist_id: playlistId,
+          playlist_title: playlistTitle || null,
+          playlist_author: playlistAuthor || null,
+          plays: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
 
         if (insertError) {
           console.error('Error inserting new playlist:', insertError);
@@ -306,6 +305,29 @@ export default function Home() {
     setShowPlaylistList(false);
   };
 
+  const handleShowQRCode = async () => {
+    // If we already have channel info, just show the modal
+    if (userChannelHandle || userChannelId) {
+      setShowQRModal(true);
+      return;
+    }
+
+    // Try to get channel info from stored data
+    if (channelInfo) {
+      setUserChannelHandle(channelInfo.handle);
+      setUserChannelId(channelInfo.id);
+      setShowQRModal(true);
+    } else {
+      // If no stored info, just show the modal with YouTube home URL
+      setShowQRModal(true);
+    }
+  };
+
+  const handlePlaylistSelected = (playlistId: string, playlistTitle: string) => {
+    // Load the selected playlist
+    handlePlaylistSubmitRef.current(`https://www.youtube.com/playlist?list=${playlistId}`, shareWithCommunity);
+  };
+
   useEffect(() => {
     const playlistIdFromQuery = sanitizePlaylistParam(searchParams.get("playlist"));
     if (!playlistIdFromQuery) return;
@@ -317,6 +339,31 @@ export default function Home() {
     setShowManualInput(true);
     handlePlaylistSubmitRef.current(`https://www.youtube.com/playlist?list=${playlistIdFromQuery}`, shareWithCommunity);
   }, [searchParams, currentPlaylist, isLoading, shareWithCommunity]);
+
+  // Handle loading playlists from QR code (channel parameter)
+  useEffect(() => {
+    const channelParam = searchParams.get("channel");
+    const loadPlaylistsParam = searchParams.get("loadPlaylists");
+    
+    if (!channelParam || loadPlaylistsParam !== "true") return;
+    if (currentPlaylist) return;
+    if (isLoading) return;
+
+    // Extract channel ID or handle
+    const isChannelId = channelParam.startsWith("UC");
+    const channelIdentifier = isChannelId ? channelParam : channelParam.replace("@", "");
+
+    // Set the channel info for the playlist selector
+    if (isChannelId) {
+      setUserChannelId(channelIdentifier);
+    } else {
+      setUserChannelHandle(channelIdentifier);
+    }
+
+    // Show the playlist selector modal
+    setShowPlaylistSelector(true);
+    console.log("Loading playlists from channel:", channelIdentifier);
+  }, [searchParams, currentPlaylist, isLoading]);
 
   const onNextPressed = () => {
     // Always reset and start timer to full duration for next video
@@ -506,7 +553,7 @@ export default function Home() {
 
         {/* Header - hidden if playing a video */}
         {!currentPlaylist && (
-          <Header title="JAMMS" />
+          <Header title="JAMMS" onShowQR={handleShowQRCode} />
         )}
 
         {/* Navigation - visible when not playing a video */}
@@ -612,6 +659,25 @@ export default function Home() {
         {!currentPlaylist && (
           <Footer />
         )}
+
+        {/* QR Code Modal */}
+        <QRCodeModal
+          isOpen={showQRModal}
+          onClose={() => setShowQRModal(false)}
+          channelHandle={userChannelHandle}
+          channelId={userChannelId}
+          showPlaylists={true}
+        />
+
+        {/* Playlist Selector Modal - shown when user scans QR code */}
+        <PlaylistSelectorModal
+          isOpen={showPlaylistSelector}
+          onClose={() => setShowPlaylistSelector(false)}
+          channelHandle={userChannelHandle}
+          channelId={userChannelId}
+          apiKey={youtubeApiKey}
+          onPlaylistSelect={handlePlaylistSelected}
+        />
       </div>
     </Suspense>
   );

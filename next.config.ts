@@ -32,7 +32,8 @@ const nextConfig: NextConfig = {
                 https://apis.google.com
                 https://www.gstatic.com
                 https://accounts.google.com
-                https://www.youtube.com;
+                https://www.youtube.com
+                https://www.googletagmanager.com;
               style-src 'self' 'unsafe-inline'
                 https://fonts.googleapis.com
                 https://accounts.google.com;
@@ -43,7 +44,8 @@ const nextConfig: NextConfig = {
                 https://accounts.google.com
                 https://www.youtube.com
                 https://www.youtube-nocookie.com
-                https://*.supabase.co
+                https://*.firebaseio.com
+                https://firestore.googleapis.com
                 https://api.lyrics.ovh;
               frame-src 'self'
                 https://accounts.google.com

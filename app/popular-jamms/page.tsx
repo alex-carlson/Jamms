@@ -7,7 +7,7 @@ import { Play } from "lucide-react";
 import Header from "../components/Header";
 import Navigation from "../components/Navigation";
 import Toast, { useToasts } from "../components/Toast";
-import { supabase, PlaylistPlay } from "../../lib/supabase";
+import { firestoreHelpers, PlaylistPlay } from "../../lib/firestore";
 import { useYouTubeAPI } from "../hooks/useYouTubeAPI";
 
 type PlaylistMeta = {
@@ -23,7 +23,7 @@ export default function PopularJamms() {
   const [playlists, setPlaylists] = useState<PlaylistPlay[]>([]);
   const [playlistMeta, setPlaylistMeta] = useState<Record<string, PlaylistMeta>>({});
   const [loading, setLoading] = useState(true);
-  const [deletingPlaylistId, setDeletingPlaylistId] = useState<number | null>(null);
+  const [deletingPlaylistId, setDeletingPlaylistId] = useState<string | null>(null);
   const { toasts, dismissToast, showError, showSuccess } = useToasts();
   const youtubeApiKey = process.env.NEXT_PUBLIC_YOUTUBE_API_KEY;
   const { getPublicPlaylistVideoIds } = useYouTubeAPI();
@@ -36,42 +36,10 @@ export default function PopularJamms() {
     try {
       setLoading(true);
 
-      // Check if Supabase client was created successfully
-      if (!supabase) {
-        throw new Error('Supabase client not initialized. Check environment variables in .env.local');
-      }
-
-      // First test with popular_jamms table (which we know works)
-      try {
-        const { data: testData, error: testError } = await supabase
-          .from('popular_jamms')
-          .select('*')
-          .limit(5);
-
-        if (testError || !testData) {
-          // Ignore this probe failure and continue with playlist_plays query
-        }
-      } catch {
-        // Ignore this probe failure and continue with playlist_plays query
-      }
-
-      // Now try playlist_plays
-      const { data, error } = await supabase
-        .from('playlist_plays')
-        .select('*')
-        .order('plays', { ascending: false })
-        .limit(20);
+      // Query playlist_plays with Firestore
+      const { data, error } = await firestoreHelpers.getPlaylistPlays();
 
       if (error) {
-        // Check for specific error types
-        if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-          throw new Error('Table "playlist_plays" does not exist. Please run the SQL setup script in your Supabase dashboard.');
-        }
-
-        if (error.message?.includes('permission denied') || error.message?.includes('insufficient_privilege')) {
-          throw new Error('Permission denied. RLS may be blocking access. Try temporarily disabling RLS on playlist_plays table.');
-        }
-
         throw new Error(`Database query failed: ${error.message || JSON.stringify(error)}`);
       }
 
@@ -180,19 +148,9 @@ export default function PopularJamms() {
     try {
       setDeletingPlaylistId(playlist.id);
 
-      if (!supabase) {
-        throw new Error('Supabase client not initialized');
-      }
-
-      const { error } = await supabase
-        .from('playlist_plays')
-        .delete()
-        .eq('id', playlist.id);
+      const { error } = await firestoreHelpers.deletePlaylist(playlist.id);
 
       if (error) {
-        if (error.message?.includes('permission denied') || error.message?.includes('not allowed')) {
-          throw new Error('Delete is blocked by Supabase policy. Add a DELETE policy for playlist_plays to enable removal.');
-        }
         throw new Error(error.message || 'Failed to delete playlist');
       }
 
