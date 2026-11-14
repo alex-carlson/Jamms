@@ -25,7 +25,7 @@ export default function PrivacyPolicy() {
         <ul className="list-disc pl-6 mb-4">
           <li>We do not sell your personal information</li>
           <li>Google and YouTube APIs are used for authentication and playlist data</li>
-          <li>Supabase is used for backend data storage</li>
+          <li>Firestore is used for backend data storage</li>
         </ul>
         <h2 className="text-xl font-semibold mt-6 mb-2">Your Choices</h2>
         <ul className="list-disc pl-6 mb-4">
