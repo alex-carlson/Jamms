@@ -1,5 +1,6 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit as firestoreLimit, QueryConstraint } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+// The lite SDK uses REST instead of gRPC/protobufjs, which needs runtime code generation that Cloudflare Workers disallow.
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, limit as firestoreLimit, QueryConstraint } from 'firebase/firestore/lite';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,14 +11,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-if (!firebaseConfig.projectId) {
-  throw new Error(
-    'NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing. Set the Firebase environment variables in the deployment build environment and rebuild.'
-  );
-}
+function getDb() {
+  if (!firebaseConfig.projectId) {
+    throw new Error(
+      'NEXT_PUBLIC_FIREBASE_PROJECT_ID is missing. Set the Firebase environment variables in the deployment build environment and rebuild.'
+    );
+  }
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  return getFirestore(app);
+}
 
 export type PopularJamm = {
   id: string;
@@ -47,7 +50,7 @@ export const firestoreHelpers = {
   async getPlaylistPlays(constraints: QueryConstraint[] = []) {
     try {
       const defaultConstraints = [orderBy('plays', 'desc'), firestoreLimit(20)];
-      const q = query(collection(db, 'playlist_plays'), ...constraints.length ? constraints : defaultConstraints);
+      const q = query(collection(getDb(), 'playlist_plays'), ...constraints.length ? constraints : defaultConstraints);
       const snapshot = await getDocs(q);
       return {
         data: snapshot.docs.map(doc => ({
@@ -67,7 +70,7 @@ export const firestoreHelpers = {
   // Get single playlist by URL
   async getPlaylistByUrl(youtubeUrl: string) {
     try {
-      const q = query(collection(db, 'playlist_plays'), where('youtube_url', '==', youtubeUrl));
+      const q = query(collection(getDb(), 'playlist_plays'), where('youtube_url', '==', youtubeUrl));
       const snapshot = await getDocs(q);
       if (snapshot.empty) {
         return { data: null, error: null };
@@ -91,7 +94,7 @@ export const firestoreHelpers = {
   // Update playlist plays count
   async updatePlaylistPlays(docId: string, newPlays: number) {
     try {
-      const docRef = doc(db, 'playlist_plays', docId);
+      const docRef = doc(getDb(), 'playlist_plays', docId);
       await updateDoc(docRef, {
         plays: newPlays,
         updated_at: new Date().toISOString(),
@@ -107,7 +110,7 @@ export const firestoreHelpers = {
   // Insert new playlist
   async insertPlaylist(data: Omit<PlaylistPlay, 'id'>) {
     try {
-      const docRef = await addDoc(collection(db, 'playlist_plays'), {
+      const docRef = await addDoc(collection(getDb(), 'playlist_plays'), {
         ...data,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -123,7 +126,7 @@ export const firestoreHelpers = {
   // Delete playlist
   async deletePlaylist(docId: string) {
     try {
-      await deleteDoc(doc(db, 'playlist_plays', docId));
+      await deleteDoc(doc(getDb(), 'playlist_plays', docId));
       return { error: null };
     } catch (error) {
       return {
@@ -135,7 +138,7 @@ export const firestoreHelpers = {
   // Get popular jamms
   async getPopularJamms() {
     try {
-      const q = query(collection(db, 'popular_jamms'), orderBy('plays', 'desc'), firestoreLimit(5));
+      const q = query(collection(getDb(), 'popular_jamms'), orderBy('plays', 'desc'), firestoreLimit(5));
       const snapshot = await getDocs(q);
       return {
         data: snapshot.docs.map(doc => ({
