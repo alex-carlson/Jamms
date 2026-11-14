@@ -5,15 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Public environment variables (visible in code)
 [vars]
-NEXT_PUBLIC_SUPABASE_URL = "https://ybbfemnpmtqrinilbwgg.supabase.co"
 NODE_ENV = "production"
-
-# Environment-specific variables
-[env.production.vars]
-NEXT_PUBLIC_SUPABASE_URL = "sb_publishable_xIpK9wpUsParMIYXRpYNTg_WgQkVcCf"
-
-[env.staging.vars]
-NEXT_PUBLIC_SUPABASE_URL = "sb_publishable_xIpK9wpUsParMIYXRpYNTg_WgQkVcCf"
 
 [assets]
 directory = ".open-next/assets"

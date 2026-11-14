@@ -2,10 +2,9 @@ interface HeaderProps {
   title: string;
   subtitle?: string;
   className?: string;
-  onShowQR?: () => void;
 }
 
-export default function Header({ title, subtitle, className = "", onShowQR }: HeaderProps) {
+export default function Header({ title, subtitle, className = "" }: HeaderProps) {
   return (
     <div className={`max-w-4xl mx-auto pt-8 ${className}`}>
       <img src="/hamms-background.png" alt="" className="w-full" />
