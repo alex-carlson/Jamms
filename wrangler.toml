@@ -1,7 +1,7 @@
 name = "powerhour"
 main = ".open-next/worker.js"
 compatibility_date = "2026-03-05"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
 # Public environment variables (visible in code)
 [vars]
@@ -9,6 +9,11 @@ NODE_ENV = "production"
 
 [assets]
 directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "powerhour"
 
 [observability.logs]
 enabled = true
@@ -20,6 +25,3 @@ persist = true
 enabled = false
 head_sampling_rate = 1
 persist = true
-
-[observability.issue_detection]
-enabled = false

@@ -78,8 +78,24 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploy to Cloudflare Workers
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The project uses the [OpenNext Cloudflare adapter](https://opennext.js.org/cloudflare).
+In Workers Builds, connect this repository and configure:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Build command: `npm run cf:build`
+- Deploy command: `npx opennextjs-cloudflare deploy -- --keep-vars`
+- Build variables and secrets: add the Firebase and YouTube variables listed above.
+  Add `NEXT_PUBLIC_BASE_URL` with the public site URL for correct sharing metadata.
+
+Set these variables for each build environment before deploying. Worker runtime variables
+alone are not available when Next.js builds the browser bundle. The `--keep-vars` option
+preserves runtime variables configured in the Cloudflare dashboard.
+
+For a local Worker preview, run `npm run cf:dev`. To build and deploy from the CLI,
+authenticate Wrangler and run `npm run cf:deploy`. OpenNext recommends Linux, macOS,
+or WSL rather than native Windows for building and previewing.
+
+The default adapter configuration does not provide persistent incremental caching.
+For caching and revalidation across requests, configure an R2 cache as described in
+the [OpenNext caching guide](https://opennext.js.org/cloudflare/caching).

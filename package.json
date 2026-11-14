@@ -6,8 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "cf:build": "npx @opennextjs/cloudflare build",
-    "cf:deploy": "npm run cf:build && wrangler deploy",
-    "cf:dev": "npm run cf:build && wrangler dev",
+    "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy -- --keep-vars",
+    "cf:dev": "npm run cf:build && opennextjs-cloudflare preview",
     "start": "next start",
     "lint": "eslint"
   },
